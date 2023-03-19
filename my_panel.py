@@ -109,6 +109,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		print("Timeout!"); self.window.status_message("Timeout!")
 		view.show_popup("<b style='background-color:lime;color:red'>: Timeout! :</b>")
 
+	def pf(self, a, n, i=0, c=""):
+		r = ""
+		for j in range(len(a)):
+			if a[j] not in c:
+				r = (self.pf(a, n, i + 1, a[j] + c) if i < n else "|" + c + a[j]) + r
+		return r
+
 	# Do the transformation if the syntax is matched
 	def do_transformation(self, text, option=""):
 		# Case insensitive by default
@@ -128,6 +135,20 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			text = (re.sub(r"([\w.])", r"(?:\\b\1\\w*\\b(?:[^\\w\\n]+|$))", re.sub(r"//$", "", text.strip())[:-1] if re.search(r"^/.+/$", text.strip()) else re.sub(r"//$", "", text.strip()))
 			+ ("||" if re.search(r"^\S+\s+.+//$", text.strip()) else "|")
 			+ re.sub(r"(?<=[\w.])(?=[\w.?])", r"(?:\w{0,3})", text.strip()[1:] if re.search(r"^/.+/$", text.strip()) else text.strip()))
+		# Otherwise, if it's my very log file
+		elif self.window.active_view().file_name() == MyPanelCommand.filepath + r"\log.txt":
+			# If delimiter for permutation arrangement is found and it's not multi-term search
+			if re.search(r"\S;\S", text) and not re.search(r"^\S+\s+.+//$", text.strip()):
+				# Remove the leading and trailing slashes pair if found
+				text = text.strip()[1:-1] if re.search(r"^/.+/$", text.strip()) else text.strip()
+				# Permutation arrangement takes place
+				ts = re.split(r"\s+", text) if re.search(r"\s+", text) else [text]
+				text = "/"
+				for i in range(len(ts)):
+					ta = re.split(r"(?<=\S);(?=\S)", ts[i])
+					for j in range(len(ta)):
+						text = self.pf(ta, j) + text
+				text = "/" + (text[1:] if text[:1] == "|" else text) #; print(text)#debug
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
