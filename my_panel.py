@@ -14,6 +14,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	ass_ao = False	# ass_ao stands for "assortment in ascending order"
 	extraspace = ""	# this variable works actually for both space and semicolon
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
+	text = ""	# this variable is added due to those code added for permutation arrangement
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -236,6 +237,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# If one of the assorted matches is picked, insert it directly
 			if re.search(r"^\s*\d+ <<< ", results[index]):
 				v = MyPanelCommand.mc_len + 5
+				if results[index][v:] in MyPanelCommand.mark:
+					if len(MyPanelCommand.text) == 0:
+						MyPanelCommand.text = text
+					text = results[index][v:]
+					results = self.get_matched_lines(self.do_transformation(text))
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
+					return
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
 				self.window.active_view().run_command("insert", {"characters": head + results[index][v:] + tail})
@@ -258,6 +266,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			head = "= =" if MyPanelCommand.extraspace.startswith("head") else "=;=" if MyPanelCommand.extraspace.startswith(";") else ""
 			tail = "= =" if MyPanelCommand.extraspace.endswith("tail") else "=;=" if MyPanelCommand.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
+			if len(MyPanelCommand.text) > 0:
+				text = MyPanelCommand.text; MyPanelCommand.text = ""
 			self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
