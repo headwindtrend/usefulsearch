@@ -6,6 +6,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	enum = 0
 	items = []
 	maxtol = 5  # maxtol stands for "maximum tolerance" in seconds
+	text = ""	# this variable is added due to those code added for permutation arrangement
 	# the initial value set here, for the variables below, doesn't really matter
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
@@ -14,7 +15,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	ass_ao = False	# ass_ao stands for "assortment in ascending order"
 	extraspace = ""	# this variable works actually for both space and semicolon
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
-	text = ""	# this variable is added due to those code added for permutation arrangement
 	# end of variables initialization section
 
 	def run(self, text=None):
