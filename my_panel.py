@@ -15,6 +15,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	ass_ao = False	# ass_ao stands for "assortment in ascending order"
 	extraspace = ""	# this variable works actually for both space and semicolon
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
+	orisel = []	# orisel stands for "original selection"
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -27,7 +28,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if text:
 			# As this probably comes from the history list, show it on input_panel to enable further adjustment
 			if len(MyPanelCommand.items) > 0:
-				self.window.show_input_panel("Search:", "", self.on_done, None, None)
+				self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 				self.window.run_command("insert", {"characters": text})
 			# Otherwise, this comes from command argument at the very beginning (say, from console), hence need no adjustment
 			else:
@@ -44,7 +45,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				hash_region = view.find("##", curlinbeg)
 				if hash_region.begin() >= curlinbeg and hash_region.end() <= curlinend:
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), curlinend))
-			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, None)
+			MyPanelCommand.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
+			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 	def on_done(self, text):
 		view = self.window.active_view()
@@ -84,6 +86,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# print(MyPanelCommand.tmbtp_itself)#debug
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not MyPanelCommand.tmbtp_itself:
+				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
 				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 			# Otherwise, attempt shorthand search
 			else:
@@ -91,6 +94,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
@@ -105,6 +109,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				print("Empty list!"); self.window.status_message("Empty list!")
 				self.window.run_command("my_panel", {"text": text})
 				view.show_popup("<b style='background-color:red;color:yellow'>: Empty list! :</b>")
+
+	def on_cancel(self):
+		self.window.active_view().erase_regions("MyPanel")
 
 	def prompt_timeout(self, view):
 		print("Timeout!"); self.window.status_message("Timeout!")
@@ -232,6 +239,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
+		view = self.window.active_view()
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# If one of the assorted matches is picked, insert it directly
@@ -242,20 +250,24 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 						MyPanelCommand.text = text
 					text = results[index][v:]
 					results = self.get_matched_lines(self.do_transformation(text))
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 					return
+				view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
-				self.window.active_view().run_command("insert", {"characters": head + results[index][v:] + tail})
+				view.run_command("insert", {"characters": head + results[index][v:] + tail})
 				# Run this command again with the untransformed text
 				self.window.run_command("my_panel", {"text": text})
 			# Otherwise, goto the picked line
 			else:
 				v = MyPanelCommand.lc_len + 2
 				# If it's my very log file, remove the first seven characters (which is the date stamp of that line) and insert it directly
-				view = self.window.active_view()
 				if view.file_name() == MyPanelCommand.filepath + r"\log.txt":
+					view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 					view.run_command("insert", {"characters": results[index][v+7:]})
+					# Run this command again with the untransformed text
+					self.window.run_command("my_panel", {"text": text})
 					return
 				# Otherwise, show the find_panel and insert the text (which is equivalent to "jump" to that line)
 				self.window.run_command("show_panel", {"panel": "find", "regex": True})
@@ -274,4 +286,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	def on_highlight(self, index, results):
 		if not re.search(r"^\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
-			view.set_viewport_position((0, view.text_to_layout(view.full_line(view.text_point(int(results[index][:MyPanelCommand.lc_len]) - 1, 0)).begin())[1] - view.viewport_extent()[1] / 2))
+			line_number = int(results[index][:MyPanelCommand.lc_len])
+			line_region = view.full_line(view.text_point(line_number - 1, 0))
+			view.set_viewport_position((0, view.text_to_layout(line_region.begin())[1] - view.viewport_extent()[1] / 2))
+			line_region = view.line(view.text_point(line_number - 1, 0))
+			mid_point = line_region.begin() + (line_region.end() - line_region.begin()) / 2
+			view.sel().clear(); view.sel().add(sublime.Region(mid_point, mid_point))
