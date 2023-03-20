@@ -14,6 +14,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	ass_ao = False	# ass_ao stands for "assortment in ascending order"
 	extraspace = ""	# this variable works actually for both space and semicolon
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
+	orisel = []	# orisel stands for "original selection"
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -43,6 +44,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				hash_region = view.find("##", curlinbeg)
 				if hash_region.begin() >= curlinbeg and hash_region.end() <= curlinend:
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), curlinend))
+			MyPanelCommand.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
 			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 	def on_done(self, text):
@@ -215,23 +217,27 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
+		view = self.window.active_view()
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# If one of the assorted matches is picked, insert it directly
 			if re.search(r"^\s*\d+ <<< ", results[index]):
 				v = MyPanelCommand.mc_len + 5
+				view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
-				self.window.active_view().run_command("insert", {"characters": head + results[index][v:] + tail})
+				view.run_command("insert", {"characters": head + results[index][v:] + tail})
 				# Run this command again with the untransformed text
 				self.window.run_command("my_panel", {"text": text})
 			# Otherwise, goto the picked line
 			else:
 				v = MyPanelCommand.lc_len + 2
 				# If it's my very log file, remove the first seven characters (which is the date stamp of that line) and insert it directly
-				view = self.window.active_view()
 				if view.file_name() == MyPanelCommand.filepath + r"\log.txt":
+					view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 					view.run_command("insert", {"characters": results[index][v+7:]})
+					# Run this command again with the untransformed text
+					self.window.run_command("my_panel", {"text": text})
 					return
 				# Otherwise, show the find_panel and insert the text (which is equivalent to "jump" to that line)
 				self.window.run_command("show_panel", {"panel": "find", "regex": True})
