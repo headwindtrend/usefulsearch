@@ -26,7 +26,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if text:
 			# As this probably comes from the history list, show it on input_panel to enable further adjustment
 			if len(MyPanelCommand.items) > 0:
-				self.window.show_input_panel("Search:", "", self.on_done, None, None)
+				self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 				self.window.run_command("insert", {"characters": text})
 			# Otherwise, this comes from command argument at the very beginning (say, from console), hence need no adjustment
 			else:
@@ -43,7 +43,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				hash_region = view.find("##", curlinbeg)
 				if hash_region.begin() >= curlinbeg and hash_region.end() <= curlinend:
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), curlinend))
-			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, None)
+			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 	def on_done(self, text):
 		view = self.window.active_view()
@@ -83,6 +83,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# print(MyPanelCommand.tmbtp_itself)#debug
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not MyPanelCommand.tmbtp_itself:
+				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
 				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 			# Otherwise, attempt shorthand search
 			else:
@@ -90,6 +91,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
@@ -104,6 +106,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				print("Empty list!"); self.window.status_message("Empty list!")
 				self.window.run_command("my_panel", {"text": text})
 				view.show_popup("<b style='background-color:red;color:yellow'>: Empty list! :</b>")
+
+	def on_cancel(self):
+		self.window.active_view().erase_regions("MyPanel")
 
 	def prompt_timeout(self, view):
 		print("Timeout!"); self.window.status_message("Timeout!")
@@ -243,4 +248,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	def on_highlight(self, index, results):
 		if not re.search(r"^\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
-			view.set_viewport_position((0, view.text_to_layout(view.full_line(view.text_point(int(results[index][:MyPanelCommand.lc_len]) - 1, 0)).begin())[1] - view.viewport_extent()[1] / 2))
+			line_number = int(results[index][:MyPanelCommand.lc_len])
+			line_region = view.full_line(view.text_point(line_number - 1, 0))
+			view.set_viewport_position((0, view.text_to_layout(line_region.begin())[1] - view.viewport_extent()[1] / 2))
+			line_region = view.line(view.text_point(line_number - 1, 0))
+			mid_point = line_region.begin() + (line_region.end() - line_region.begin()) / 2
+			view.sel().clear(); view.sel().add(sublime.Region(mid_point, mid_point))
