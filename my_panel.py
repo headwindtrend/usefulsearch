@@ -223,7 +223,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		MyPanelCommand.mc_len = len(str(max(ulist, key=lambda x: x[1])[1])) if len(ulist) > 0 else 0
 		assortm = [("{:>" + str(MyPanelCommand.mc_len) + "} <<< {}").format(value, key) for key, value in ulist]
 		# print(assortm)#debug
-		MyPanelCommand.tmbtp_itself = (len(regions) == 1 and view.rowcol(regions[0].begin()) == view.rowcol(view.sel()[0].begin()))
+		MyPanelCommand.tmbtp_itself = (len(regions) == 1 and regions[0].begin() in range(view.sel()[0].begin(), view.sel()[0].end()))
 		# print(MyPanelCommand.tmbtp_itself)#debug
 		return assortm + results
 
