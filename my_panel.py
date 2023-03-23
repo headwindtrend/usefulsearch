@@ -171,15 +171,17 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		lastfound = -1
 		timeout = time.time() + MyPanelCommand.maxtol	# default to 5 seconds from now
 		view = self.window.active_view()
+		# Prepare for the line number formatting
+		row, _ = view.rowcol(view.size())
+		line_count = row + 1
+		MyPanelCommand.lc_len = len(str(line_count))
+		format_str = "{:>" + str(MyPanelCommand.lc_len) + "}:"
+		# Find all possible marks as the preparation for assortment
+		marks = [(i, i.begin(), i.end()) for i in view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0)]
 		# Find all regions that match the text
 		regions = view.find_all(text, sublime.IGNORECASE if MyPanelCommand.case_i else 0)
 		# Loop through each region
 		for region in regions:
-			# Prepare for the line number formatting
-			row, _ = view.rowcol(view.size())
-			line_count = row + 1
-			MyPanelCommand.lc_len = len(str(line_count))
-			format_str = "{:>" + str(MyPanelCommand.lc_len) + "}:"
 			# Get the line number of the region
 			line_number, _ = view.rowcol(region.begin())
 			if line_number != lastfound:
@@ -188,7 +190,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Append the result to the list
 				result = format_str.format(line_number + 1) + " " + line_text
 				results.append(result)
-				assortm += re.findall(MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
+				assortm += [view.substr(i[0]) for i in marks if i[1] >= view.line(region).begin() and i[2] <= view.line(region).end()]	#re.findall(MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
 			lastfound = line_number
 			if time.time() > timeout: return [">>>Timeout<<<"]
 		# print(MyPanelCommand.mark)#debug
