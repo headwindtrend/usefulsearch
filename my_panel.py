@@ -85,7 +85,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# print(MyPanelCommand.tmbtp_itself)#debug
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not MyPanelCommand.tmbtp_itself:
-				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
+				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0), "string", "dot")
 				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 			# Otherwise, attempt shorthand search
 			else:
@@ -93,7 +93,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
-					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
@@ -227,6 +227,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
 				view.run_command("insert", {"characters": head + results[index][v:] + tail})
+				MyPanelCommand.orisel = list(view.sel())	# Adopt new position(s) in active_view for next text-insert
 				# Run this command again with the untransformed text
 				self.window.run_command("my_panel", {"text": text})
 			# Otherwise, goto the picked line
@@ -236,6 +237,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if view.file_name() == MyPanelCommand.filepath + r"\log.txt":
 					view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 					view.run_command("insert", {"characters": results[index][v+7:]})
+					MyPanelCommand.orisel = list(view.sel())	# Adopt new position(s) in active_view for next text-insert
 					# Run this command again with the untransformed text
 					self.window.run_command("my_panel", {"text": text})
 					return
