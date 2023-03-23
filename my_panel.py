@@ -250,7 +250,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 						MyPanelCommand.text = text
 					text = results[index][v:]
 					results = self.get_matched_lines(self.do_transformation(text))
-					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark), "string", "dot")
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
 					return
 				view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
