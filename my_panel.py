@@ -5,7 +5,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	historyfile = filepath + r"\my_panel.txt"
 	enum = 0
 	items = []
-	maxtol = 5  # maxtol stands for "maximum tolerance" in seconds
+	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
 	# the initial value set here, for the variables below, doesn't really matter
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
@@ -181,7 +181,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		# Find all regions that match the text
 		regions = view.find_all(text, sublime.IGNORECASE if MyPanelCommand.case_i else 0)
 		# Loop through each region
-		for region in regions:
+		for ri, region in enumerate(regions):
 			# Get the line number of the region
 			line_number, _ = view.rowcol(region.begin())
 			if line_number != lastfound:
@@ -192,7 +192,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				results.append(result)
 				assortm += [view.substr(i[0]) for i in marks if i[1] >= view.line(region).begin() and i[2] <= view.line(region).end()]	#re.findall(MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
 			lastfound = line_number
-			if time.time() > timeout: return [">>>Timeout<<<"]
+			if time.time() > timeout:
+				percent_completed = (ri + 1) / len(regions) * 100
+				themessage = str(int(percent_completed)) + "% completed\n\nDo you want to continue?"
+				yesno = sublime.yes_no_cancel_dialog(themessage, "Yes", "No")
+				if yesno == sublime.DIALOG_YES: timeout = time.time() + MyPanelCommand.maxtol	# reset timer
+				else: return [">>>Timeout<<<"]
 		# print(MyPanelCommand.mark)#debug
 		# print(assortm)#debug
 		stass = [item.strip() for item in assortm]
