@@ -171,13 +171,24 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		lastfound = -1
 		timeout = time.time() + MyPanelCommand.maxtol	# default to 5 seconds from now
 		view = self.window.active_view()
+		# Prevent those assorted matches, being deemed "too many", from entering the main loop (as it unnecessarily slowdowns the process)
+		slimark = MyPanelCommand.mark
+		if "|" in slimark:
+			ma = slimark.split("|")
+			for i in range(len(ma)):
+				n = len(view.find_all(ma[i], sublime.IGNORECASE if MyPanelCommand.case_i else 0))
+				if n > 99:	# definition of "too many"
+					assortm += [str(n) + " <<< " + ma[i]]
+					slimark = slimark.replace(("|" if i else "") + ma[i] + ("" if i else "|"), "")
+				elif n == 0:	# take the chance to remove those nonexistent candidates
+					slimark = slimark.replace(("|" if i else "") + ma[i] + ("" if i else "|"), "")
 		# Prepare for the line number formatting
 		row, _ = view.rowcol(view.size())
 		line_count = row + 1
 		MyPanelCommand.lc_len = len(str(line_count))
 		format_str = "{:>" + str(MyPanelCommand.lc_len) + "}:"
 		# Find all possible marks as the preparation for assortment
-		marks = [(i, i.begin(), i.end()) for i in view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0)]
+		marks = [(i, i.begin(), i.end()) for i in view.find_all(slimark, sublime.IGNORECASE if MyPanelCommand.case_i else 0)]
 		# Find all regions that match the text
 		regions = view.find_all(text, sublime.IGNORECASE if MyPanelCommand.case_i else 0)
 		# Loop through each region
@@ -206,7 +217,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:	# Chronological order
 			ulist = [(i, stass.count(i)) for i in [i for i in stass if i not in seen and not seen.append(i)]] #; print(ulist)#debug
 		MyPanelCommand.mc_len = len(str(max(ulist, key=lambda x: x[1])[1])) if len(ulist) > 0 else 0
-		assortm = [("{:>" + str(MyPanelCommand.mc_len) + "} <<< {}").format(value, key) for key, value in ulist]
+		assortm = [("{:>" + str(MyPanelCommand.mc_len) + "} " + (">>>" if "<<<" in key else "<<<") + " {}").format(value, key) for key, value in ulist]
 		# print(assortm)#debug
 		MyPanelCommand.tmbtp_itself = (len(regions) == 1 and regions[0].begin() in range(view.sel()[0].begin(), view.sel()[0].end()))
 		# print(MyPanelCommand.tmbtp_itself)#debug
@@ -228,8 +239,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# If one of the assorted matches is picked, insert it directly
-			if re.search(r"^\s*\d+ <<< ", results[index]):
-				v = MyPanelCommand.mc_len + 5
+			if re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
+				v = results[index].find(" <<< ") + 5	#MyPanelCommand.mc_len + 5
 				view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
@@ -261,7 +272,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
-		if not re.search(r"^\s*\d+ <<< ", results[index]):
+		if not re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
 			line_number = int(results[index][:MyPanelCommand.lc_len])
 			line_region = view.full_line(view.text_point(line_number - 1, 0))
