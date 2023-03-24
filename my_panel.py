@@ -179,9 +179,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				n = len(view.find_all(ma[i], sublime.IGNORECASE if MyPanelCommand.case_i else 0))
 				if n > 99:	# definition of "too many"
 					assortm += [str(n) + " <<< " + ma[i]]
-					slimark = slimark.replace(("|" if i else "") + ma[i] + ("" if i else "|"), "")
+					slimark = ("|" + slimark + "|").replace("|" + ma[i] + "|", "|"); slimark = slimark[1:-1]
 				elif n == 0:	# take the chance to remove those nonexistent candidates
-					slimark = slimark.replace(("|" if i else "") + ma[i] + ("" if i else "|"), "")
+					slimark = ("|" + slimark + "|").replace("|" + ma[i] + "|", "|"); slimark = slimark[1:-1]
 		# Prepare for the line number formatting
 		row, _ = view.rowcol(view.size())
 		line_count = row + 1
