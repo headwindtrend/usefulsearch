@@ -195,7 +195,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		view = self.window.active_view()
 		# Prevent those assorted matches, being deemed "too many", from entering the main loop (as it unnecessarily slowdowns the process)
 		slimark = MyPanelCommand.mark
-		if "|" in slimark:
+		if "|" in slimark and "\\w{0,3}" not in slimark:
 			ma = slimark.split("|")
 			for i in range(len(ma)):
 				n = len(view.find_all(ma[i], sublime.IGNORECASE if MyPanelCommand.case_i else 0))
@@ -210,7 +210,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		MyPanelCommand.lc_len = len(str(line_count))
 		format_str = "{:>" + str(MyPanelCommand.lc_len) + "}:"
 		# Find all possible marks as the preparation for assortment
-		marks = [(i, i.begin(), i.end()) for i in view.find_all(slimark, sublime.IGNORECASE if MyPanelCommand.case_i else 0)]
+# 		marks = [(view.substr(i), i.begin(), i.end()) for i in view.find_all(slimark if slimark else MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0)]
 		# Find all regions that match the text
 		regions = view.find_all(text, sublime.IGNORECASE if MyPanelCommand.case_i else 0)
 		# Loop through each region
@@ -223,7 +223,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Append the result to the list
 				result = format_str.format(line_number + 1) + " " + line_text
 				results.append(result)
-				assortm += [view.substr(i[0]) for i in marks if i[1] >= view.line(region).begin() and i[2] <= view.line(region).end()]	#re.findall(MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
+# 				assortm += [i[0] for i in marks if i[1] >= view.line(region).begin() and i[2] <= view.line(region).end()]	#re.findall(MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
+				assortm += re.findall(slimark if slimark else MyPanelCommand.mark, line_text, re.IGNORECASE if MyPanelCommand.case_i else 0)
 			lastfound = line_number
 			if time.time() > timeout:
 				percent_completed = (ri + 1) / len(regions) * 100
