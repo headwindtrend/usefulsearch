@@ -7,7 +7,7 @@ Let's see some typical examples first:
 
 1, to find all the lines in the "buffer" (a typical text editor jargon) which contains "one" and "def" (see note) and show them on a quick panel in a shortlisted manner, you can enter like:
 
-	```one def//``` or ```def one//```
+	`one def//` or `def one//`
 	
 	where the "syntax" of this example lies in a space in between and the double slashes at the end.
 	note: the sequential order of occurrences of these two substrings (jargon) on the line doesn't matter.
@@ -24,7 +24,7 @@ Let's see some typical examples first:
 
 2, likewise, for lines which contains "def" yet does not contain "one", it goes like:
 
-	```def -one//``` or ```-one def```
+	`def -one//` or `-one def//`
 	
 	A possible result may show like:
 	
@@ -46,8 +46,11 @@ Let's see some typical examples first:
 	```
 
 3. a simple shorthand search example goes like:
-	```tef``` (as long as "tef" does not exist anywhere in the "buffer", shorthand search will be attempted automatically)
+
+	`tef` (as long as "tef" does not exist anywhere in the "buffer", shorthand search will be attempted automatically)
+	
 	A possible result may show like:
+	
 	```
 	5 <<< tself
 	1 <<< to enable further
@@ -62,8 +65,11 @@ Let's see some typical examples first:
 	```
 
 4. a simple regex example goes like:
-	```/def.+one/```
+
+	`/def.+one/`
+	
 	A possible result may show like:
+	
 	```
 	1 <<< def run(self, text=None
 	1 <<< def on_done
