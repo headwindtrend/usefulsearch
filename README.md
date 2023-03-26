@@ -14,6 +14,12 @@ No time to complete this just yet. Will get back and have it done as soon as i c
 	```
 
 	and goes on for a regex search with it.
+	
+	simpler ones look like these two:
+
+	`jkl;def;abc` >>> `/defabcjkl|jklabcdef|abcdefjkl|jkldefabc|abcjkldef|defjklabc|abcdef|abcjkl|defabc|defjkl|jklabc|jkldef|abc|def|jkl/`
+
+	`ghi;stuvw` >>> `/stuvwghi|ghistuvw|stuvw|ghi/`
 
 Let's see some typical examples first:
 
