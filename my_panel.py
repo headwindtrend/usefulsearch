@@ -158,7 +158,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			MyPanelCommand.mark = text
 		else:
 			if "\\w{0,3}" not in text:
-				text = re.escape(text)
+				text = re.escape(text); text = text.replace(r"\`", "`")
 			MyPanelCommand.mark = text
 		sublime.set_clipboard(text)	# This exists for the user convenience as s/he may want to use the pattern to find the "needle" by other means, for instance, by ctrl+f
 		return text
