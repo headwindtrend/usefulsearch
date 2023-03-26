@@ -5,29 +5,31 @@ No time to complete this just yet. Will get back and have it done as soon as i c
 
 Let's see some typical examples first:
 
-1, to find all the lines in the "buffer" (a typical text editor jargon) which contains "one" and "def" (see note) and show them on a quick panel in a shortlisted manner, you can enter like:
+1.	to find all the lines in the "buffer" (a typical text editor jargon) which contains "one" and "def" (see note) and show them on a quick panel in a shortlisted manner, you can enter like:
 
 	`one def//` or `def one//`
-	
-	where the "syntax" of this example lies in a space in between and the double slashes at the end.
+
+	where the "syntax" of this example depends on a space in between and the double slashes at the end.
+
 	note: the sequential order of occurrences of these two substrings (jargon) on the line doesn't matter.
+
 	A possible result may show like:
-	
+
 	```
 	2 <<< def
 	2 <<< one
 	 21: def run(self, text=None):
 	 51: def on_done(self, text):
 	```
-	
+
 	You may use the up-arrow or down-arrow keyboard keys to highlight a line (or by rightclick it) on the quick panel, which will scroll that line into view (jargon)
 
-2, likewise, for lines which contains "def" yet does not contain "one", it goes like:
+2.	likewise, for lines which contains "def" yet does not contain "one", you can enter like:
 
 	`def -one//` or `-one def//`
-	
+
 	A possible result may show like:
-	
+
 	```
 	13 <<< def
 	 65: # No extra space by default
@@ -45,7 +47,7 @@ Let's see some typical examples first:
 	315: def on_highlight(self, index, results):
 	```
 
-3. a simple shorthand search example goes like:
+3.	a simple shorthand search example goes like:
 
 	`tef` (as long as "tef" does not exist anywhere in the "buffer", shorthand search will be attempted automatically)
 	
@@ -64,7 +66,7 @@ Let's see some typical examples first:
 	246: # print(MyPanelCommand.tmbtp_itself)#debug
 	```
 
-4. a simple regex example goes like:
+4.	a simple regex example goes like:
 
 	`/def.+one/`
 	
