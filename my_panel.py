@@ -24,29 +24,47 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			with open(MyPanelCommand.historyfile, "r") as f:
 				MyPanelCommand.items += [item.strip("\n") for item in f.readlines()]
 		MyPanelCommand.enum += 1
+		view = self.window.active_view()
+
+		def s_handler(endpoint, skip_input=False):
+			# Before the input_panel is shown, select the "target" first if any
+			sel0 = view.sel()[0]
+			if len(view.substr(sel0)) == 0:
+				point = sel0.begin()
+				curlinbeg = view.line(point).begin()
+				hash_region = view.find("##", curlinbeg)
+				if hash_region.begin() >= curlinbeg and hash_region.end() <= endpoint:
+					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), endpoint))
+			# If still nothing selected, show history list directly
+			if len(view.substr(view.sel()[0])) == 0:
+				self.show_history(text)
+			# Otherwise, bring up input_panel with the selected text
+			else:
+				MyPanelCommand.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
+				if skip_input: self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
+				else: self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
+
 		# If anything is given as an argument, use it directly
 		if text:
-			# As this probably comes from the history list, show it on input_panel to enable further adjustment
-			if len(MyPanelCommand.items) > 0:
-				self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
-				self.window.run_command("insert", {"characters": text})
-			# Otherwise, this comes from command argument at the very beginning (say, from console), hence need no adjustment
-			else:
-				self.on_done(text)
+			# If it's this ";;event;;" particular string, it probably came from event listener
+			if text == ";;event;;":
+				text = ""; s_handler(view.sel()[0].begin(), True)
+			# Otherwise, if not this "[=escape=]" particular string, it probably came from the history list, show it on input_panel to enable further adjustment
+			elif text != "[=escape=]":
+				# Provided that it's an existing item
+				if text in MyPanelCommand.items:
+					self.window.show_input_panel("Search:", text, self.on_done, None, self.on_cancel)
+				# Otherwise, search it directly
+				else: self.window.run_command("hide_overlay"); self.on_done(text)
 		# Otherwise, prompt the user for an input
+		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
+
+	def show_history(self, text):
+		items = MyPanelCommand.items
+		if len(items) > 0:
+			self.window.show_quick_panel(items, lambda idx: self.pick(idx, items, text))
 		else:
-			# Before the input_panel is shown, select the "target" first if any
-			view = self.window.active_view()
-			sel0 = view.sel()[0]
-			point = sel0.begin()
-			curlinbeg = view.line(point).begin()
-			curlinend = view.line(point).end()
-			if len(view.substr(sel0)) == 0:
-				hash_region = view.find("##", curlinbeg)
-				if hash_region.begin() >= curlinbeg and hash_region.end() <= curlinend:
-					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), curlinend))
-			MyPanelCommand.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
-			self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
+			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 
 	def on_done(self, text):
 		view = self.window.active_view()
@@ -104,7 +122,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			items = MyPanelCommand.items
 			if len(items) > 0:
-				self.window.show_quick_panel(items, lambda idx: self.pick(idx, items, text))
+				self.show_history(text)
 			else:
 				print("Empty list!"); self.window.status_message("Empty list!")
 				self.window.run_command("my_panel", {"text": text})
@@ -254,7 +272,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.window.run_command("my_panel", {"text": items[index]})
 		else:
 			# Run this command again with the untransformed text
-			self.window.run_command("my_panel", {"text": text})
+			self.window.run_command("my_panel", {"text": text if text else "[=escape=]"})
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
@@ -316,3 +334,15 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			mid_point = line_region.begin() + (line_region.end() - line_region.begin()) / 2
 			view.sel().clear(); view.sel().add(sublime.Region(mid_point, mid_point))
 			view.show_at_center(mid_point)
+
+class MyListener(sublime_plugin.EventListener):
+	def on_modified(self, view):
+		sel0 = view.sel()[0]
+		if len(view.substr(sel0)) == 0:
+			point = sel0.begin()
+			if view.substr(sublime.Region(point - 2, point)) == ";;":
+				view.run_command("left_delete"); view.run_command("left_delete")
+				if view == view.window().active_view():
+					view.window().run_command("my_panel", {"text": ";;event;;"})
+				else:
+					view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
