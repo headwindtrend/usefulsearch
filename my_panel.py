@@ -312,8 +312,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if not re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
 			line_number = int(results[index][:MyPanelCommand.lc_len])
-			line_region = view.full_line(view.text_point(line_number - 1, 0))
-			view.set_viewport_position((0, view.text_to_layout(line_region.begin())[1] - view.viewport_extent()[1] / 2))
 			line_region = view.line(view.text_point(line_number - 1, 0))
 			mid_point = line_region.begin() + (line_region.end() - line_region.begin()) / 2
 			view.sel().clear(); view.sel().add(sublime.Region(mid_point, mid_point))
+			view.show_at_center(mid_point)
