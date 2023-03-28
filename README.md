@@ -3,6 +3,24 @@ A Sublime Text 3 Plugin for useful (but not yet seen elsewhere) search features 
 
 No time to complete this just yet. Will get back and have it done as soon as i can.
 
+0.	A typical example for permutation arrangement goes like:
+
+	`abc;xyz;mno def;pqr` where the "syntax" of this example depends on the semi-colons and the space in between.
+
+	which will generate a regex as below:
+
+	```
+	/pqrdef|defpqr|pqr|def|xyzmnoabc|abcmnoxyz|mnoxyzabc|abcxyzmno|mnoabcxyz|xyzabcmno|mnoxyz|mnoabc|xyzmno|xyzabc|abcmno|abcxyz|mno|xyz|abc/
+	```
+
+	and goes on for a regex search with it.
+	
+	simpler ones look like these two:
+
+	`jkl;def;abc` >>> `/defabcjkl|jklabcdef|abcdefjkl|jkldefabc|abcjkldef|defjklabc|abcdef|abcjkl|defabc|defjkl|jklabc|jkldef|abc|def|jkl/`
+
+	`ghi;stuvw` >>> `/stuvwghi|ghistuvw|stuvw|ghi/`
+
 Let's see some typical examples first:
 
 1.	to find all the lines in the "buffer" (a typical text editor jargon) which contains "one" and "def" (see note) and show them on a quick panel in a shortlisted manner, you can enter like:

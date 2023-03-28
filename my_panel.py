@@ -6,6 +6,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	enum = 0
 	items = []
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
+	text = "" # this variable is added due to those code added for permutation arrangement
 	# the initial value set here, for the variables below, doesn't really matter
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
@@ -134,6 +135,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		print("Timeout!"); self.window.status_message("Timeout!")
 		view.show_popup("<b style='background-color:lime;color:red'>: Timeout! :</b>")
 
+	def pf(self, a, n, i=0, c=""):
+		r = ""
+		for j in range(len(a)):
+			if a[j] not in c:
+				r = (self.pf(a, n, i + 1, a[j] + c) if i < n else "|" + c + a[j]) + r
+		return r
+
 	# Do the transformation if the syntax is matched
 	def do_transformation(self, text, option=""):
 		# Case insensitive by default
@@ -153,6 +161,20 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			text = (re.sub(r"([\w.])", r"(?:\\b\1\\w*\\b(?:[^\\w\\n]+|$))", re.sub(r"//$", "", text.strip())[:-1] if re.search(r"^/.+/$", text.strip()) else re.sub(r"//$", "", text.strip()))
 			+ ("||" if re.search(r"^\S+\s+.+//$", text.strip()) else "|")
 			+ re.sub(r"(?<=[\w.])(?=[\w.?])", r"(?:\w{0,3})", text.strip()[1:] if re.search(r"^/.+/$", text.strip()) else text.strip()))
+		# Otherwise, if it's my very log file
+		elif self.window.active_view().file_name() == MyPanelCommand.filepath + r"\log.txt":
+			# If delimiter for permutation arrangement is found and it's not multi-term search
+			if re.search(r"\S;\S", text) and not re.search(r"^\S+\s+.+//$", text.strip()):
+				# Remove the leading and trailing slashes pair if found
+				text = text.strip()[1:-1] if re.search(r"^/.+/$", text.strip()) else text.strip()
+				# Permutation arrangement takes place
+				ts = re.split(r"\s+", text) if re.search(r"\s+", text) else [text]
+				text = "/"
+				for i in range(len(ts)):
+					ta = re.split(r"(?<=\S);(?=\S)", ts[i])
+					for j in range(len(ta)):
+						text = self.pf(ta, j) + text
+				text = "/" + (text[1:] if text[:1] == "|" else text) #; print(text)#debug
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
@@ -260,6 +282,18 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# If one of the assorted matches is picked, insert it directly
 			if re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 				v = results[index].find(" <<< ") + 5	#MyPanelCommand.mc_len + 5
+				if results[index][v:] in MyPanelCommand.mark:
+					new_index = 0
+					if int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100:	# impose a limit for drilldown
+						if len(MyPanelCommand.text) == 0:
+							MyPanelCommand.text = text
+						text = results[index][v:]
+						results = self.get_matched_lines(self.do_transformation(text))
+						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(MyPanelCommand.mark, sublime.IGNORECASE if MyPanelCommand.case_i else 0), "string", "dot")
+					else:
+						self.window.status_message("Drilldown is rejected!"); new_index = index
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, new_index, lambda idx: self.on_highlight(idx, results))
+					return
 				view.sel().clear(); view.sel().add_all(MyPanelCommand.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if MyPanelCommand.extraspace.startswith("head") else ";" if MyPanelCommand.extraspace.startswith(";") else ""
 				tail = " " if MyPanelCommand.extraspace.endswith("tail") else ";" if MyPanelCommand.extraspace.endswith(";") else ""
@@ -287,6 +321,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			head = "= =" if MyPanelCommand.extraspace.startswith("head") else "=;=" if MyPanelCommand.extraspace.startswith(";") else ""
 			tail = "= =" if MyPanelCommand.extraspace.endswith("tail") else "=;=" if MyPanelCommand.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
+			if len(MyPanelCommand.text) > 0:
+				text = MyPanelCommand.text; MyPanelCommand.text = ""
 			self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
