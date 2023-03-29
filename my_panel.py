@@ -53,6 +53,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Provided that it's an existing item
 				if text in self.items:
 					self.window.show_input_panel("Search:", text, self.on_done, None, self.on_cancel)
+					self.window.run_command('move_to', {"to": "bol", "extend": True})
 				# Otherwise, search it directly
 				else: self.window.run_command("hide_overlay"); self.on_done(text)
 		# Otherwise, prompt the user for an input
