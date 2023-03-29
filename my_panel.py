@@ -22,7 +22,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if self.enum == 0:
 			with open(self.historyfile, "r") as f:
 				self.items += [item.strip("\n") for item in f.readlines()]
-			if self.items[0] != ">>>                           Top of history list":
+			if len(self.items) == 0 or self.items[0] != ">>>                           Top of history list":
 				self.items.insert(0, ">>>                           Top of history list")
 		self.enum += 1
 		view = self.window.active_view()
