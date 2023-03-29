@@ -23,6 +23,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if self.enum == 0:
 			with open(self.historyfile, "r") as f:
 				self.items += [item.strip("\n") for item in f.readlines()]
+			if self.items[0] != ">>>                           Top of history list":
+				self.items.insert(0, ">>>                           Top of history list")
 		self.enum += 1
 		view = self.window.active_view()
 
@@ -37,7 +39,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), endpoint))
 			# If still nothing selected, show history list directly
 			if len(view.substr(view.sel()[0])) == 0:
-				self.show_history(text)
+				self.show_history()
 			# Otherwise, bring up input_panel with the selected text
 			else:
 				self.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
@@ -60,10 +62,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		# Otherwise, prompt the user for an input
 		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
 
-	def show_history(self, text):
-		items = self.items
-		if len(items) > 0:
-			self.window.show_quick_panel(items, lambda idx: self.pick(idx, items, text))
+	def show_history(self, index=1):
+		if len(self.items) > 0:
+			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 
@@ -95,7 +96,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				text = re.sub(r"=[ ;]=\s*$", "", text)
 			# Keep a history of all the entries but those already exist
 			if text not in self.items:
-				self.items.insert(0, text)
+				self.items.insert(1, text)
 				# Save changes
 				with open(self.historyfile, "w") as f:
 					for item in self.items: f.write(item + "\n")
@@ -123,7 +124,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			items = self.items
 			if len(items) > 0:
-				self.show_history(text)
+				self.show_history()
 			else:
 				print("Empty list!"); self.window.status_message("Empty list!")
 				self.window.run_command("my_panel", {"text": text})
@@ -266,14 +267,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		return assortm + results
 
 	# A helper function that runs this command again with the selected item
-	def pick(self, index, items, text):
+	def pick(self, index):
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# Run this command again with the selected item as an argument
-			self.window.run_command("my_panel", {"text": items[index]})
+			self.window.run_command("my_panel", {"text": self.items[index]})
 		else:
 			# Run this command again with the untransformed text
-			self.window.run_command("my_panel", {"text": text if text else "[=escape=]"})
+			self.window.run_command("my_panel", {"text": "[=escape=]"})
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
@@ -336,6 +337,17 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			view.sel().clear(); view.sel().add(sublime.Region(mid_point, mid_point))
 			view.show_at_center(mid_point)
 
+	# A helper function that show a popup for item-delete
+	def on_history_item_highlight(self, index):
+		self.PanelView.show_popup("<a href='#'><b style='background-color:blue;color:yellow'>: Delete selected item :</b>", location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
+
+	def on_navigate(self, href, index):
+		if index > 0: self.items.pop(index)
+		# Save changes
+		with open(self.historyfile, "w") as f:
+			for item in self.items: f.write(item + "\n")
+		self.window.run_command("hide_overlay"); self.show_history(index)
+
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
 		sel0 = view.sel()[0]
@@ -347,3 +359,7 @@ class MyListener(sublime_plugin.EventListener):
 					view.window().run_command("my_panel", {"text": ";;event;;"})
 				else:
 					view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
+
+	def on_activated(self, view):
+		if view != view.window().active_view():
+			MyPanelCommand.PanelView = view
