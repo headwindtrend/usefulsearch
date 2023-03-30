@@ -6,7 +6,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	enum = 0
 	items = []
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
-	text = "" # this variable is added due to those code added for permutation arrangement
+	text = ""	# this variable is added due to those code added for permutation arrangement
+	viewlist = []	# this variable keep track all the has-had-activated views
+	flags = []	# this variable is added for flow control
 	# the initial value set here, for the variables below, doesn't really matter
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
@@ -16,6 +18,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	extraspace = ""	# this variable works actually for both space and semicolon
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
 	orisel = []	# orisel stands for "original selection"
+	lastseenQP = 0	# keep last seen quick panel
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -39,11 +42,11 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), endpoint))
 			# If still nothing selected, show history list directly
 			if len(view.substr(view.sel()[0])) == 0:
-				self.show_history()
+				self.hide_quick_panel(); self.show_history()
 			# Otherwise, bring up input_panel with the selected text
 			else:
 				self.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
-				if skip_input: self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
+				if skip_input: self.hide_quick_panel(); self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
 				else: self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 		# If anything is given as an argument, use it directly
@@ -54,11 +57,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Otherwise, if not this "[=escape=]" particular string, it probably came from the history list, show it on input_panel to enable further adjustment
 			elif text != "[=escape=]":
 				# Provided that it's an existing item
-				if text in self.items:
+				if not (self.quick_panel_ssos() or "no edit" in self.flags) or "yes edit" in self.flags:	# re.sub(r"^\s*=[ ;]=|=[ ;]=\s*$", "", text) in self.items
+					if "yes edit" in self.flags: self.flags.remove("yes edit")
 					self.window.show_input_panel("Search:", text, self.on_done, None, self.on_cancel)
 					self.window.run_command('move_to', {"to": "bol", "extend": True})
 				# Otherwise, search it directly
-				else: self.window.run_command("hide_overlay"); self.on_done(text)
+				else:
+					if "no edit" in self.flags: self.flags.remove("no edit")
+					self.hide_quick_panel(); self.on_done(text)
 		# Otherwise, prompt the user for an input
 		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
 
@@ -67,6 +73,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
+
+	def hide_quick_panel(self):
+		if self.quick_panel_ssos():	# ssos stands for "still shown on screen"
+			self.window.run_command("hide_overlay")
+			if "chain" not in self.flags: self.flags.append("chain")
+
+	def quick_panel_ssos(self):
+		return self.viewlist[-1] == self.lastseenQP
 
 	def on_done(self, text):
 		view = self.window.active_view()
@@ -103,7 +117,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Do the essential process
 			results = self.get_matched_lines(self.do_transformation(text))
 			if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
-			# print(self.tmbtp_itself)#debug
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not self.tmbtp_itself:
 				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
@@ -176,7 +189,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					ta = re.split(r"(?<=\S);(?=\S)", ts[i])
 					for j in range(len(ta)):
 						text = self.pf(ta, j) + text
-				text = "/" + (text[1:] if text[:1] == "|" else text) #; print(text)#debug
+				text = "/" + (text[1:] if text[:1] == "|" else text)
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
@@ -252,27 +265,25 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				yesno = sublime.yes_no_cancel_dialog(themessage, "Yes", "No")
 				if yesno == sublime.DIALOG_YES: timeout = time.time() + self.maxtol	# reset timer
 				else: return [">>>Timeout<<<"]
-		# print(self.mark)#debug
-		# print(assortm)#debug
 		stass = [item.strip() for item in assortm]
 		if self.ass_ao:	# Ascending order
-			ulist = sorted([(i, stass.count(i)) for i in set(stass)], key=lambda x: x[0]) #; print(ulist)#debug
+			ulist = sorted([(i, stass.count(i)) for i in set(stass)], key=lambda x: x[0])
 		else:	# Chronological order
-			ulist = [(i, stass.count(i)) for i in [i for i in stass if i not in seen and not seen.append(i)]] #; print(ulist)#debug
+			ulist = [(i, stass.count(i)) for i in [i for i in stass if i not in seen and not seen.append(i)]]
 		self.mc_len = len(str(max(ulist, key=lambda x: x[1])[1])) if len(ulist) > 0 else 0
 		assortm = [("{:>" + str(self.mc_len) + "} " + (">>>" if "<<<" in key else "<<<") + " {}").format(value, key) for key, value in ulist]
-		# print(assortm)#debug
 		self.tmbtp_itself = (len(regions) == 1 and regions[0].begin() in range(view.sel()[0].begin(), view.sel()[0].end()))
-		# print(self.tmbtp_itself)#debug
 		return assortm + results
 
 	# A helper function that runs this command again with the selected item
 	def pick(self, index):
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
+			if "no edit" not in self.flags: self.flags.append("no edit")
 			# Run this command again with the selected item as an argument
 			self.window.run_command("my_panel", {"text": self.items[index]})
 		else:
+			if "chain" in self.flags: self.flags.remove("chain")
 			# Run this command again with the untransformed text
 			self.window.run_command("my_panel", {"text": "[=escape=]"})
 
@@ -325,10 +336,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Run this command again with the untransformed text
 			if len(self.text) > 0:
 				text = self.text; self.text = ""
-			self.window.run_command("my_panel", {"text": head + text + tail})
+			if "chain" in self.flags: self.flags.remove("chain"); self.window.run_command("my_panel", {"text": "[=escape=]"})
+			else: self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
+		self.lastseenQP = self.viewlist[-1]
 		if not re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
 			line_number = int(results[index][:self.lc_len])
@@ -339,14 +352,20 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that show a popup for item-delete
 	def on_history_item_highlight(self, index):
-		self.PanelView.show_popup("<a href='#'><b style='background-color:blue;color:yellow'>: Delete selected item :</b>", location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
+		self.lastseenQP = self.viewlist[-1]
+		self.PanelView.show_popup("<a href='edit'><b style='background-color:blue;color:yellow'>: Edit :</b> <a href='delete'><b style='background-color:lime;color:red'>: Delete :</b>", location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
 
 	def on_navigate(self, href, index):
-		if index > 0: self.items.pop(index)
-		# Save changes
-		with open(self.historyfile, "w") as f:
-			for item in self.items: f.write(item + "\n")
-		self.window.run_command("hide_overlay"); self.show_history(index)
+		if href == "delete":
+			if index > 0: self.items.pop(index)
+			# Save changes
+			with open(self.historyfile, "w") as f:
+				for item in self.items: f.write(item + "\n")
+
+			self.hide_quick_panel(); self.show_history(index)
+		elif href == "edit":
+			if "yes edit" not in self.flags: self.flags.append("yes edit")
+			self.window.run_command("my_panel", {"text": self.items[index]})
 
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
@@ -363,3 +382,9 @@ class MyListener(sublime_plugin.EventListener):
 	def on_activated(self, view):
 		if view != view.window().active_view():
 			MyPanelCommand.PanelView = view
+		# Maintain a unique list of has-had-activated views and current one at the end
+		if view.id() not in MyPanelCommand.viewlist:
+			MyPanelCommand.viewlist.append(view.id())
+		else:
+			MyPanelCommand.viewlist.remove(view.id())
+			MyPanelCommand.viewlist.append(view.id())
