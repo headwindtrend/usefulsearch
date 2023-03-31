@@ -9,6 +9,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	text = ""	# this variable is added due to those code added for permutation arrangement
 	viewlist = []	# this variable keep track all the has-had-activated views
 	flags = []	# this variable is added for flow control
+	lastdel = ""	# this variable is added for the undo feature
 	# the initial value set here, for the variables below, doesn't really matter
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
@@ -19,6 +20,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
 	orisel = []	# orisel stands for "original selection"
 	lastseenQP = 0	# keep last seen quick panel
+	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -41,7 +43,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if hash_region.begin() >= curlinbeg and hash_region.end() <= endpoint:
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), endpoint))
 			# If still nothing selected, show history list directly
-			if len(view.substr(view.sel()[0])) == 0:
+			if len(view.substr(view.sel()[0])) == 0 or ";;event;;" in self.flags:
+				if ";;event;;" in self.flags: self.flags.remove(";;event;;")
 				self.hide_quick_panel(); self.show_history()
 			# Otherwise, bring up input_panel with the selected text
 			else:
@@ -53,6 +56,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if text:
 			# If it's this ";;event;;" particular string, it probably came from event listener
 			if text == ";;event;;":
+				if ";;event;;" not in self.flags: self.flags.append(";;event;;")
 				text = ""; s_handler(view.sel()[0].begin(), True)
 			# Otherwise, if not this "[=escape=]" particular string, it probably came from the history list, show it on input_panel to enable further adjustment
 			elif text != "[=escape=]":
@@ -171,6 +175,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if re.search(r"^\s*=aa=|=aa=\s*$", text):
 			self.ass_ao = True
 			text = re.sub(r"^\s*=aa=|=aa=\s*$", "", text)
+		# Prescan and pregroup for "too many" by default
+		self.grptycoon = True
+		# Handle no prescan&pregroup request
+		if re.search(r"^\s*=np=|=np=\s*$", text):
+			self.grptycoon = False
+			text = re.sub(r"^\s*=np=|=np=\s*$", "", text)
 		# Prepare the text for shorthand search
 		if option == "shorthand":
 			text = (re.sub(r"([\w.])", r"(?:\\b\1\\w*\\b(?:[^\\w\\n]+|$))", re.sub(r"//$", "", text.strip())[:-1] if re.search(r"^/.+/$", text.strip()) else re.sub(r"//$", "", text.strip()))
@@ -228,7 +238,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		view = self.window.active_view()
 		# Prevent those assorted matches, being deemed "too many", from entering the main loop (as it unnecessarily slowdowns the process)
 		slimark = self.mark
-		if "|" in slimark and "\\w{0,3}" not in slimark:
+		if self.grptycoon and "|" in slimark and "\\w{0,3}" not in slimark:
 			ma = slimark.split("|")
 			for i in range(len(ma)):
 				n = len(view.find_all(ma[i], sublime.IGNORECASE if self.case_i else 0))
@@ -353,19 +363,22 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	# A helper function that show a popup for item-delete
 	def on_history_item_highlight(self, index):
 		self.lastseenQP = self.viewlist[-1]
-		self.PanelView.show_popup("<a href='edit'><b style='background-color:blue;color:yellow'>: Edit :</b> <a href='delete'><b style='background-color:lime;color:red'>: Delete :</b>", location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
+		self.PanelView.show_popup("<a href='edit'><b style='background-color:blue;color:yellow'>: Edit :</b> <a href='delete'><b style='background-color:lime;color:red'>: Delete :</b>" + (" <a href='undo'><b style='background-color:chocolate;color:white'>: Undo :</b>" if len(self.lastdel) > 0 else ""), location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
 
 	def on_navigate(self, href, index):
 		if href == "delete":
+			self.lastdel = self.items[index]
 			if index > 0: self.items.pop(index)
-			# Save changes
-			with open(self.historyfile, "w") as f:
-				for item in self.items: f.write(item + "\n")
-
-			self.hide_quick_panel(); self.show_history(index)
 		elif href == "edit":
 			if "yes edit" not in self.flags: self.flags.append("yes edit")
 			self.window.run_command("my_panel", {"text": self.items[index]})
+		elif href == "undo":
+			self.items.insert(index, self.lastdel); self.lastdel = ""
+		if href in ["delete", "undo"]:
+			# Save changes
+			with open(self.historyfile, "w") as f:
+				for item in self.items: f.write(item + "\n")
+			self.hide_quick_panel(); self.show_history(index)
 
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
@@ -377,6 +390,7 @@ class MyListener(sublime_plugin.EventListener):
 				if view == view.window().active_view():
 					view.window().run_command("my_panel", {"text": ";;event;;"})
 				else:
+					if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
 					view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
 
 	def on_activated(self, view):
