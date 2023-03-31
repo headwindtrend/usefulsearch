@@ -305,9 +305,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# If one of the assorted matches is picked, insert it directly
 			if re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 				v = results[index].find(" <<< ") + 5	#self.mc_len + 5
-				if results[index][v:] in self.mark:
+				if not self.grptycoon or results[index][v:] in self.mark:
 					new_index = 0
-					if int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100:	# impose a limit for drilldown
+					if not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100:	# impose a limit for drilldown
 						if len(self.text) == 0:
 							self.text = text
 						text = results[index][v:]
