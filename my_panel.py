@@ -55,7 +55,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if text:
 			# If it's this ";;event;;" particular string, it probably came from event listener
 			if text == ";;event;;":
-				if ";;event;;" not in self.flags: self.flags.append(";;event;;")
 				text = ""; s_handler(view.sel()[0].begin(), True)
 			# Otherwise, if not this "[=escape=]" particular string, it probably came from the history list, show it on input_panel to enable further adjustment
 			elif text != "[=escape=]":
