@@ -3,13 +3,12 @@ import sublime, sublime_plugin, re, time
 class MyPanelCommand(sublime_plugin.WindowCommand):
 	filepath = r"C:\Users\user\Documents\55776956"
 	historyfile = filepath + r"\my_panel.txt"
-	enum = 0
-	items = []
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
 	viewlist = []	# this variable keep track all the has-had-activated views
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
 	# the initial value set here, for the variables below, doesn't really matter
+	items = []	# this variable keep track all history items
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
 	mc_len = 5	# how many characters (i.e. length) "occurrance count for matches" required
 	mark = ""	# this variable is for holding of the search term(s) for assorted matches
@@ -23,13 +22,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	# end of variables initialization section
 
 	def run(self, text=None):
-		# Load from history upfront
-		if self.enum == 0:
-			with open(self.historyfile, "r") as f:
-				self.items += [item.strip("\n") for item in f.readlines()]
-			if len(self.items) == 0 or self.items[0] != ">>>                           Top of history list":
-				self.items.insert(0, ">>>                           Top of history list")
-		self.enum += 1
 		view = self.window.active_view()
 
 		def s_handler(endpoint, skip_input=False):
@@ -365,3 +357,9 @@ class MyListener(sublime_plugin.EventListener):
 		else:
 			MyPanelCommand.viewlist.remove(view.id())
 			MyPanelCommand.viewlist.append(view.id())
+
+def plugin_loaded():
+	topline = ">>>" + " "*27 + "Top of history list"
+	with open(MyPanelCommand.historyfile, "r") as f:
+		MyPanelCommand.items = [item.strip("\n") for item in f.readlines() if item != topline + "\n"]
+	MyPanelCommand.items.insert(0, topline)
