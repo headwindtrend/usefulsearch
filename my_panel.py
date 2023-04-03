@@ -41,7 +41,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			else:
 				self.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
 				if skip_input: self.hide_quick_panel(); self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
-				else: self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
+				else:
+					if "history list is shown" in self.flags: self.flags.remove("history list is shown")
+					self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 		# If anything is given as an argument, use it directly
 		if text:
@@ -58,13 +60,16 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Otherwise, search it directly
 				else:
 					if "no edit" in self.flags: self.flags.remove("no edit")
+					if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 					self.hide_quick_panel(); self.on_done(text)
 		# Otherwise, prompt the user for an input
 		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
 
 	def show_history(self, index=1):
+		if "history list is shown" in self.flags: self.flags.remove("history list is shown"); return
 		if len(self.items) > 0:
 			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
+			if "history list is shown" not in self.flags: self.flags.append("history list is shown")
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 
@@ -192,7 +197,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.mark = text
 		else:
 			if "\\w{0,3}" not in text:
-				text = re.escape(text); text = text.replace(r"\`", "`")
+				text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'")
 			self.mark = text
 		sublime.set_clipboard(text)	# This exists for the user convenience as s/he may want to use the pattern to find the "needle" by other means, for instance, by ctrl+f
 		return text
@@ -333,6 +338,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Save changes
 			with open(self.historyfile, "w") as f:
 				for item in self.items: f.write(item + "\n")
+			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 			self.hide_quick_panel(); self.show_history(index)
 
 class MyListener(sublime_plugin.EventListener):
