@@ -337,16 +337,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
-		sel0 = view.sel()[0]
-		if len(view.substr(sel0)) == 0:
-			point = sel0.begin()
-			if view.substr(sublime.Region(point - 2, point)) == ";;":
-				view.run_command("left_delete"); view.run_command("left_delete")
-				if view == view.window().active_view():
-					view.window().run_command("my_panel", {"text": ";;event;;"})
-				else:
-					if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
-					view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
+		if view.command_history(0) == ('insert', {'characters': ';;'}, 1):
+			view.run_command("left_delete"); view.run_command("left_delete")
+			if view == view.window().active_view():
+				view.window().run_command("my_panel", {"text": ";;event;;"})
+			else:
+				if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
+				view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
 
 	def on_activated(self, view):
 		if view != view.window().active_view():
