@@ -338,7 +338,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
 		if view.command_history(0) == ('insert', {'characters': ';;'}, 1):
-			view.run_command("left_delete"); view.run_command("left_delete")
+			view.run_command("undo")
 			if view == view.window().active_view():
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
