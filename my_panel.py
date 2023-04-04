@@ -4,6 +4,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	filepath = r"C:\Users\user\Documents\55776956"
 	historyfile = filepath + r"\my_panel.txt"
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
+	# text = ""	# this variable was added for drilldown
+	stack = []	# this variable is added for drilldown
 	viewlist = []	# this variable keep track all the has-had-activated views
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
@@ -68,7 +70,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	def show_history(self, index=1):
 		if "history list is shown" in self.flags: self.flags.remove("history list is shown"); return
 		if len(self.items) > 0:
-			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
+			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight) #; print(self.flags)#debug
 			if "history list is shown" not in self.flags: self.flags.append("history list is shown")
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
@@ -119,7 +121,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not self.tmbtp_itself:
 				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
+				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = [] #; print(self.flags)#debug
 			# Otherwise, attempt shorthand search
 			else:
 				results = self.get_matched_lines(self.do_transformation(text, "shorthand"))
@@ -127,7 +129,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
 					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results))
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = [] #; print(self.flags)#debug
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
 					self.window.run_command("my_panel", {"text": text})
@@ -148,6 +150,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	def prompt_timeout(self, view):
 		print("Timeout!"); self.window.status_message("Timeout!")
 		view.show_popup("<b style='background-color:lime;color:red'>: Timeout! :</b>")
+
+	def pf(self, a, n, i=0, c=""):
+		r = ""
+		for j in range(len(a)):
+			if a[j] not in c:
+				r = (self.pf(a, n, i + 1, a[j] + c) if i < n else "|" + c + a[j]) + r
+		return r
 
 	# Do the transformation if the syntax is matched
 	def do_transformation(self, text, option=""):
@@ -174,6 +183,20 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			text = (re.sub(r"([\w.])", r"(?:\\b\1\\w*\\b(?:[^\\w\\n]+|$))", re.sub(r"//$", "", text.strip())[:-1] if re.search(r"^/.+/$", text.strip()) else re.sub(r"//$", "", text.strip()))
 			+ ("||" if re.search(r"^\S+\s+.+//$", text.strip()) else "|")
 			+ re.sub(r"(?<=[\w.])(?=[\w.?])", r"(?:\w{0,3})", text.strip()[1:] if re.search(r"^/.+/$", text.strip()) else text.strip()))
+		# Otherwise, if it's my very log file
+		elif self.window.active_view().file_name() == self.filepath + r"\log.txt":
+			# If delimiter for permutation arrangement is found and it's not multi-term search
+			if re.search(r"\S;\S", text) and not re.search(r"^\S+\s+.+//$", text.strip()):
+				# Remove the leading and trailing slashes pair if found
+				text = text.strip()[1:-1] if re.search(r"^/.+/$", text.strip()) else text.strip()
+				# Permutation arrangement takes place
+				ts = re.split(r"\s+", text) if re.search(r"\s+", text) else [text]
+				text = "/"
+				for i in range(len(ts)):
+					ta = re.split(r"(?<=\S);(?=\S)", ts[i])
+					for j in range(len(ta)):
+						text = self.pf(ta, j) + text
+				text = "/" + (text[1:] if text[:1] == "|" else text)
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
@@ -279,6 +302,18 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# If one of the assorted matches is picked, insert it directly
 			if re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 				v = results[index].find(" <<< ") + 5	#self.mc_len + 5
+				if not self.grptycoon or results[index][v:] in self.mark:
+					new_index = 0
+					if results[index][v:] != text and (not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100):	# impose a limit for drilldown
+						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (index, results, text, self.extraspace, self.mark):
+							self.stack += [(index, results, text, self.extraspace, self.mark)]
+						text = results[index][v:]
+						results = self.get_matched_lines(self.do_transformation(text))
+						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+					else:
+						self.window.status_message("Drilldown is rejected!"); new_index = index
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, new_index, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
+					return
 				view.sel().clear(); view.sel().add_all(self.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if self.extraspace.startswith("head") else ";" if self.extraspace.startswith(";") else ""
 				tail = " " if self.extraspace.endswith("tail") else ";" if self.extraspace.endswith(";") else ""
@@ -302,11 +337,17 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				self.window.run_command("insert", {"characters": "\\Q" + results[index][v:]})	# Since i have always had my sublimetext3 "regex" option turned on, so use "\Q" (for "raw") to ensure "the find" found
 				# Run this command again with the untransformed text
 				self.window.run_command("my_panel", {"text": text})
+		elif "chain" in self.flags:
+			self.flags.remove("chain"); self.window.run_command("my_panel", {"text": "[=escape=]"})
 		else:
+			fallback = len(self.stack) > 0
+			if fallback:
+				index, results, text, self.extraspace, self.mark = self.stack.pop()
+				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
-			if "chain" in self.flags: self.flags.remove("chain"); self.window.run_command("my_panel", {"text": "[=escape=]"})
+			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
 			else: self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
