@@ -347,7 +347,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
-			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
+			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, index, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
 			else: self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
