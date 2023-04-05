@@ -4,7 +4,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	filepath = r"C:\Users\user\Documents\55776956"
 	historyfile = filepath + r"\my_panel.txt"
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
-	# text = ""	# this variable was added for drilldown
 	stack = []	# this variable is added for drilldown
 	viewlist = []	# this variable keep track all the has-had-activated views
 	flags = []	# this variable is added for flow control
@@ -55,7 +54,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Otherwise, if not this "[=escape=]" particular string, it probably came from the history list, show it on input_panel to enable further adjustment
 			elif text != "[=escape=]":
 				# Provided that it's an existing item
-				if not (self.quick_panel_ssos() or "no edit" in self.flags) or "yes edit" in self.flags:	# re.sub(r"^\s*=[ ;]=|=[ ;]=\s*$", "", text) in self.items
+				if not (self.quick_panel_ssos() or "no edit" in self.flags or ";;NonQP;;" in self.flags) or "yes edit" in self.flags:	# re.sub(r"^\s*=[ ;]=|=[ ;]=\s*$", "", text) in self.items
 					if "yes edit" in self.flags: self.flags.remove("yes edit")
 					self.window.show_input_panel("Search:", text, self.on_done, None, self.on_cancel)
 					self.window.run_command('move_to', {"to": "bol", "extend": True})
@@ -63,6 +62,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				else:
 					if "no edit" in self.flags: self.flags.remove("no edit")
 					if "history list is shown" in self.flags: self.flags.remove("history list is shown")
+					if ";;NonQP;;" in self.flags: self.flags.remove(";;NonQP;;")
 					self.hide_quick_panel(); self.on_done(text)
 		# Otherwise, prompt the user for an input
 		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
@@ -70,7 +70,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	def show_history(self, index=1):
 		if "history list is shown" in self.flags: self.flags.remove("history list is shown"); return
 		if len(self.items) > 0:
-			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight) #; print(self.flags)#debug
+			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
 			if "history list is shown" not in self.flags: self.flags.append("history list is shown")
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
@@ -121,7 +121,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not self.tmbtp_itself:
 				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = [] #; print(self.flags)#debug
+				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
 			# Otherwise, attempt shorthand search
 			else:
 				results = self.get_matched_lines(self.do_transformation(text, "shorthand"))
@@ -129,7 +129,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
 					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = [] #; print(self.flags)#debug
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
 					self.window.run_command("my_panel", {"text": text})
@@ -312,7 +312,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 					else:
 						self.window.status_message("Drilldown is rejected!"); new_index = index
-					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, new_index, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
+					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, new_index, lambda idx: self.on_highlight(idx, results))
 					return
 				view.sel().clear(); view.sel().add_all(self.orisel)	# Resume the original selection in active_view beforehand
 				head = " " if self.extraspace.startswith("head") else ";" if self.extraspace.startswith(";") else ""
@@ -347,7 +347,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
-			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, index, lambda idx: self.on_highlight(idx, results)) #; print(self.flags)#debug
+			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, index, lambda idx: self.on_highlight(idx, results))
 			else: self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
@@ -390,6 +390,8 @@ class MyListener(sublime_plugin.EventListener):
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
 				if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
+				if MyPanelCommand.viewlist[-1] != MyPanelCommand.lastseenQP:
+					if ";;NonQP;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;NonQP;;")
 				view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
 
 	def on_activated(self, view):
