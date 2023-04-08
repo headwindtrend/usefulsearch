@@ -387,12 +387,15 @@ class MyListener(sublime_plugin.EventListener):
 		if view.command_history(0) == ('insert', {'characters': ';;'}, 1):
 			view.run_command("undo")
 			if view == view.window().active_view():
+				if "history list is shown" in MyPanelCommand.flags: MyPanelCommand.flags.remove("history list is shown")
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
-				if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
+				line_text = view.substr(view.line(sublime.Region(0, 0)))
+				if len(line_text) == 0:
+					if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
 				if MyPanelCommand.viewlist[-1] != MyPanelCommand.lastseenQP:
 					if ";;NonQP;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;NonQP;;")
-				view.window().run_command("my_panel", {"text": view.substr(view.line(sublime.Region(0, 0)))})
+				view.window().run_command("my_panel", {"text": line_text})
 
 	def on_activated(self, view):
 		if view != view.window().active_view():
