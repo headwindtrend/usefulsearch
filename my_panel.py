@@ -20,9 +20,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	orisel = []	# orisel stands for "original selection"
 	lastseenQP = 0	# keep last seen quick panel
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
+	copywhat = ""	# this variable is added for holding of the copy instruction
 	# end of variables initialization section
 
 	def run(self, text=None):
+		if text == None:
+			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 		view = self.window.active_view()
 
 		def s_handler(endpoint, skip_input=False):
@@ -94,9 +97,17 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if text in items:
 					items.remove(text)
 					# Save changes
-					with open(self.historyfile, "w") as f:
+					with open(self.historyfile, "w", encoding="utf-8") as f:
 						for item in self.items: f.write(item + "\n")
 				return self.window.run_command("my_panel")
+			# No need copy by default
+			self.copywhat = ""
+			# Check if the copy instruction is in place
+			pattern = r"\[copy(?:\s*[+/]n)?\s+(?:plain|lines?|asso?|both)(?:\s*[+/]n)?\]|\[c(?:opy)?\]"
+			copy_in_place = re.search(pattern, text)
+			if copy_in_place:
+				self.copywhat = copy_in_place.group()
+				text = re.sub(pattern, "", text)
 			# No extra space by default
 			self.extraspace = ""
 			# Check if a request is made for adding an extra leading space to the assortment return
@@ -113,7 +124,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if text not in self.items:
 				self.items.insert(1, text)
 				# Save changes
-				with open(self.historyfile, "w") as f:
+				with open(self.historyfile, "w", encoding="utf-8") as f:
 					for item in self.items: f.write(item + "\n")
 			# Do the essential process
 			results = self.get_matched_lines(self.do_transformation(text))
@@ -222,7 +233,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if "\\w{0,3}" not in text:
 				text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'")
 			self.mark = text
-		sublime.set_clipboard(text)	# This exists for the user convenience as s/he may want to use the pattern to find the "needle" by other means, for instance, by ctrl+f
+		if not self.copywhat: sublime.set_clipboard(text)	# This exists for the user convenience as s/he may want to use the pattern to find the "needle" by other means, for instance, by ctrl+f
 		return text
 
 	# Generate a list of matched lines
@@ -280,6 +291,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		self.mc_len = len(str(max(ulist, key=lambda x: x[1])[1])) if len(ulist) > 0 else 0
 		assortm = [("{:>" + str(self.mc_len) + "} " + (">>>" if "<<<" in key else "<<<") + " {}").format(value, key) for key, value in ulist]
 		self.tmbtp_itself = (len(regions) == 1 and regions[0].begin() in range(view.sel()[0].begin(), view.sel()[0].end()))
+		if self.copywhat:
+			matchedlines = ""
+			if "both" in self.copywhat or "ass" in self.copywhat:
+				for item in assortm: matchedlines += (item if "/n" in self.copywhat or "+n" in self.copywhat else item[item.find(" <<< ") + 5:]) + "\n"
+			if self.copywhat == "[c]" or self.copywhat == "[copy]" or "both" in self.copywhat or "line" in self.copywhat or "plain" in self.copywhat:
+				for item in results: matchedlines += (item if "/n" in self.copywhat or "+n" in self.copywhat else item[self.lc_len + 2:]) + "\n"
+			sublime.set_clipboard(matchedlines)
 		return assortm + results
 
 	# A helper function that runs this command again with the selected item
@@ -348,7 +366,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
 			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, index, lambda idx: self.on_highlight(idx, results))
-			else: self.window.run_command("my_panel", {"text": head + text + tail})
+			else:
+				if text:
+					if "yes edit" not in self.flags: self.flags.append("yes edit")
+				self.window.run_command("my_panel", {"text": head + text + tail})
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
@@ -377,7 +398,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.items.insert(index, self.lastdel); self.lastdel = ""
 		if href in ["delete", "undo"]:
 			# Save changes
-			with open(self.historyfile, "w") as f:
+			with open(self.historyfile, "w", encoding="utf-8") as f:
 				for item in self.items: f.write(item + "\n")
 			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 			self.hide_quick_panel(); self.show_history(index)
