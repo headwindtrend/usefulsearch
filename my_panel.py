@@ -440,7 +440,7 @@ class MyListener(sublime_plugin.EventListener):
 def plugin_loaded():
 	MyPanelCommand.topline = ">>>" + " "*27 + "Top of history list"
 	if os.path.isfile(MyPanelCommand.historyfile):
-		with open(MyPanelCommand.historyfile, "r") as f:
+		with open(MyPanelCommand.historyfile, "r", encoding="utf-8") as f:
 			filecontent = f.read()
 			filecontent = filecontent.replace('"', r'\"')
 			filecontent = re.sub(r"^(?![[\]]$)(.+)$", r'"\1"', filecontent, flags=re.MULTILINE)
