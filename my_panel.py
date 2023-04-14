@@ -1,8 +1,10 @@
-import sublime, sublime_plugin, re, time
+import sublime, sublime_plugin, re, time, json, os
 
 class MyPanelCommand(sublime_plugin.WindowCommand):
 	filepath = r"C:\Users\user\Documents\55776956"
 	historyfile = filepath + r"\my_panel.txt"
+	histdict = {}	# this variable is added for "file specific history list"
+	filename = ""	# this variable keep track of the file name of active_view
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
 	stack = []	# this variable is added for drilldown
 	viewlist = []	# this variable keep track all the has-had-activated views
@@ -96,9 +98,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				items = self.items
 				if text in items:
 					items.remove(text)
-					# Save changes
-					with open(self.historyfile, "w", encoding="utf-8") as f:
-						for item in self.items: f.write(item + "\n")
+					self.save_history()
 				return self.window.run_command("my_panel")
 			# No need copy by default
 			self.copywhat = ""
@@ -123,9 +123,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			# Keep a history of all the entries but those already exist
 			if text not in self.items:
 				self.items.insert(1, text)
-				# Save changes
-				with open(self.historyfile, "w", encoding="utf-8") as f:
-					for item in self.items: f.write(item + "\n")
+				self.save_history()
 			# Do the essential process
 			results = self.get_matched_lines(self.do_transformation(text))
 			if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
@@ -397,11 +395,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		elif href == "undo":
 			self.items.insert(index, self.lastdel); self.lastdel = ""
 		if href in ["delete", "undo"]:
-			# Save changes
-			with open(self.historyfile, "w", encoding="utf-8") as f:
-				for item in self.items: f.write(item + "\n")
+			self.save_history()
 			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 			self.hide_quick_panel(); self.show_history(index)
+
+	def save_history(self):
+		with open(self.historyfile, "w", encoding="utf-8") as f:
+			f.write(json.dumps(self.histdict)[2:-1].replace(r'\"', '&quot;').replace('", "', '\n').replace('": ["', '\n[\n').replace('"], "', '\n]\n\n').replace('"]', '\n]\n').replace('&quot;', '"'))
 
 class MyListener(sublime_plugin.EventListener):
 	def on_modified(self, view):
@@ -419,6 +419,15 @@ class MyListener(sublime_plugin.EventListener):
 				view.window().run_command("my_panel", {"text": line_text})
 
 	def on_activated(self, view):
+		# Use different history list for different file
+		if view.window().active_view().file_name() != MyPanelCommand.filename:
+			MyPanelCommand.filename = view.window().active_view().file_name()
+			if MyPanelCommand.filename not in MyPanelCommand.histdict: MyPanelCommand.histdict[MyPanelCommand.filename] = []
+			MyPanelCommand.items = MyPanelCommand.histdict[MyPanelCommand.filename]
+			if len(MyPanelCommand.items) == 0 or MyPanelCommand.items[0] != MyPanelCommand.topline:
+				if MyPanelCommand.topline in MyPanelCommand.items: MyPanelCommand.items.remove(MyPanelCommand.topline)
+				MyPanelCommand.items.insert(0, MyPanelCommand.topline)
+		# PanelView is set if it is not a buffer
 		if view != view.window().active_view():
 			MyPanelCommand.PanelView = view
 		# Maintain a unique list of has-had-activated views and current one at the end
@@ -429,7 +438,12 @@ class MyListener(sublime_plugin.EventListener):
 			MyPanelCommand.viewlist.append(view.id())
 
 def plugin_loaded():
-	topline = ">>>" + " "*27 + "Top of history list"
-	with open(MyPanelCommand.historyfile, "r") as f:
-		MyPanelCommand.items = [item.strip("\n") for item in f.readlines() if item != topline + "\n"]
-	MyPanelCommand.items.insert(0, topline)
+	MyPanelCommand.topline = ">>>" + " "*27 + "Top of history list"
+	if os.path.isfile(MyPanelCommand.historyfile):
+		with open(MyPanelCommand.historyfile, "r", encoding="utf-8") as f:
+			filecontent = f.read()
+			filecontent = filecontent.replace('"', r'\"')
+			filecontent = re.sub(r"^(?![[\]]$)(.+)$", r'"\1"', filecontent, flags=re.MULTILINE)
+			filecontent = re.sub(r'(?<=")\s+(?=\[)', ':', re.sub(r'(?<=["\]])\s+(?=")', ',', filecontent))
+			filecontent = re.sub(r'^\s+|(?<=\[)\s+(?=")|(?<=")\s+(?=])|\s+$', '', filecontent)
+			MyPanelCommand.histdict = json.loads("{" + filecontent + "}")
