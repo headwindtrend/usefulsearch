@@ -206,6 +206,21 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					for j in range(len(ta)):
 						text = self.pf(ta, j) + text
 				text = "/" + (text[1:] if text[:1] == "|" else text)
+		# Handle ime syntax
+		if option != "shorthand":
+			ime_found = re.search(r"''[\w']+''", text.strip())
+			while ime_found:
+				ime_words = ime_found.group()[2:-2].split("''"); matched_words = ""
+				for ime_word in ime_words:
+					ime_segms = ime_word.split("'"); ime_regex = "^(?!"
+					for ime_segm in ime_segms:
+						if ime_segm.startswith("-"): ime_regex += "(?!.*(?:" + ime_segm[1:] + "))"
+						else: ime_regex += "(?=.*(?:" + ime_segm + "))"
+					ime_regex += r").*\r?\n?" #; print(ime_regex)#debug
+					ime_lines = re.sub(ime_regex, "", self.udmTable, flags=re.MULTILINE)
+					matched_words += "[" + re.sub(r"\s.+(?:\r?\n|$)", "", ime_lines) + "]" #; print(matched_words)#debug
+				text = text.replace(ime_found.group(), matched_words) #; print(text)#debug
+				ime_found = re.search(r"''[\w']+''", text.strip())
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
@@ -447,3 +462,9 @@ def plugin_loaded():
 			filecontent = re.sub(r'(?<=")\s+(?=\[)', ':', re.sub(r'(?<=["\]])\s+(?=")', ',', filecontent))
 			filecontent = re.sub(r'^\s+|(?<=\[)\s+(?=")|(?<=")\s+(?=])|\s+$', '', filecontent)
 			MyPanelCommand.histdict = json.loads("{" + filecontent + "}")
+
+	udmTable_filename = MyPanelCommand.filepath + r"\udmTable.txt"
+	if os.path.isfile(udmTable_filename):
+		with open(udmTable_filename, "r", encoding="utf-8") as f:
+			MyPanelCommand.udmTable = f.read()
+	else: MyPanelCommand.udmTable = ""
