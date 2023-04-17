@@ -7,7 +7,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	filename = ""	# this variable keep track of the file name of active_view
 	maxtol = 5	# maxtol stands for "maximum tolerance" in seconds
 	stack = []	# this variable is added for drilldown
-	viewlist = []	# this variable keep track all the has-had-activated views
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
 	# the initial value set here, for the variables below, doesn't really matter
@@ -21,13 +20,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	tmbtp_itself = False	# tmbtp stands for "this might be the pattern"
 	orisel = []	# orisel stands for "original selection"
 	lastseenQP = 0	# keep last seen quick panel
+	type_of_QP = ""	# either "history list" or "search result"
+	lastview = 0	# keep last-activated view
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
 	# end of variables initialization section
 
 	def run(self, text=None):
-		if text == None:
-			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 		view = self.window.active_view()
 
 		def s_handler(endpoint, skip_input=False):
@@ -41,14 +40,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					view.sel().clear(); view.sel().add(sublime.Region(hash_region.end(), endpoint))
 			# If still nothing selected, show history list directly
 			if len(view.substr(view.sel()[0])) == 0 or ";;event;;" in self.flags:
-				if ";;event;;" in self.flags: self.flags.remove(";;event;;")
-				self.hide_quick_panel(); self.show_history()
+				self.show_history()
 			# Otherwise, bring up input_panel with the selected text
 			else:
 				self.orisel = list(view.sel())	# Keep the current selection in active_view for text-insert purpose
-				if skip_input: self.hide_quick_panel(); self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
+				if skip_input: self.on_done(view.substr(view.sel()[0]))	# Search it directly as this skip_input flag implied
 				else:
-					if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 					self.window.show_input_panel("Search:", view.substr(view.sel()[0]), self.on_done, None, self.on_cancel)
 
 		# If anything is given as an argument, use it directly
@@ -66,17 +63,18 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Otherwise, search it directly
 				else:
 					if "no edit" in self.flags: self.flags.remove("no edit")
-					if "history list is shown" in self.flags: self.flags.remove("history list is shown")
 					if ";;NonQP;;" in self.flags: self.flags.remove(";;NonQP;;")
-					self.hide_quick_panel(); self.on_done(text)
+					self.on_done(text)
 		# Otherwise, prompt the user for an input
 		else: s_handler(view.line(view.sel()[0].begin()).end(), True)
 
 	def show_history(self, index=1):
-		if "history list is shown" in self.flags: self.flags.remove("history list is shown"); return
+		h_dsc_only = self.quick_panel_ssos() and self.type_of_QP == "history list" and ";;event;;" in self.flags
+		self.hide_quick_panel()
+		if ";;event;;" in self.flags: self.flags.remove(";;event;;")
+		if h_dsc_only: return	# quit if only double-semicolon is entered in history list
 		if len(self.items) > 0:
 			self.window.show_quick_panel(self.items, self.pick, 1, index, self.on_history_item_highlight)
-			if "history list is shown" not in self.flags: self.flags.append("history list is shown")
 		else:
 			self.window.show_input_panel("Search:", "", self.on_done, None, self.on_cancel)
 
@@ -86,9 +84,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if "chain" not in self.flags: self.flags.append("chain")
 
 	def quick_panel_ssos(self):
-		return self.viewlist[-1] == self.lastseenQP
+		return self.lastview == self.lastseenQP
 
 	def on_done(self, text):
+		self.hide_quick_panel()
 		view = self.window.active_view()
 		# If anything is entered, process it and show the matches
 		if text:
@@ -300,6 +299,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that runs this command again with the selected item
 	def pick(self, index):
+		self.lastseenQP = ""
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			if "no edit" not in self.flags: self.flags.append("no edit")
@@ -371,7 +371,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
-		self.lastseenQP = self.viewlist[-1]
+		self.lastseenQP = self.lastview; self.type_of_QP = "search result"
 		if not re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
 			line_number = int(results[index][:self.lc_len])
@@ -382,7 +382,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that show a popup for item-delete
 	def on_history_item_highlight(self, index):
-		self.lastseenQP = self.viewlist[-1]
+		self.lastseenQP = self.lastview; self.type_of_QP = "history list"
 		self.PanelView.show_popup("<a href='edit'><b style='background-color:blue;color:yellow'>: Edit :</b> <a href='delete'><b style='background-color:lime;color:red'>: Delete :</b>" + (" <a href='undo'><b style='background-color:chocolate;color:white'>: Undo :</b>" if len(self.lastdel) > 0 else ""), location= self.PanelView.visible_region().end(), on_navigate= lambda href: self.on_navigate(href, index))
 
 	def on_navigate(self, href, index):
@@ -396,25 +396,35 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.items.insert(index, self.lastdel); self.lastdel = ""
 		if href in ["delete", "undo"]:
 			self.save_history()
-			if "history list is shown" in self.flags: self.flags.remove("history list is shown")
-			self.hide_quick_panel(); self.show_history(index)
+			self.lastseenQP = self.lastview; self.type_of_QP = "history list"; self.show_history(index)
 
 	def save_history(self):
 		with open(self.historyfile, "w", encoding="utf-8") as f:
 			f.write(json.dumps(self.histdict)[2:-1].replace(r'\"', '&quot;').replace('", "', '\n').replace('": ["', '\n[\n').replace('"], "', '\n]\n\n').replace('"]', '\n]\n').replace('&quot;', '"'))
 
 class MyListener(sublime_plugin.EventListener):
+	timeout = 0
+
 	def on_modified(self, view):
-		if view.command_history(0) == ('insert', {'characters': ';;'}, 1):
-			view.run_command("undo")
+		sel0 = view.sel()[0]; dsc_detected = False	# dsc stands for double-semicolon
+		if len(view.substr(sel0)) == 0:
+			point = sel0.begin()
+			if view.substr(sublime.Region(point - 2, point)) == ";;":
+				if self.timeout > time.time(): dsc_detected = True
+				else: self.timeout = time.time() + 2
+			elif view.substr(sublime.Region(point - 1, point)) == ";":
+				self.timeout = time.time() + 2
+		if view.command_history(0) == ('insert', {'characters': ';;'}, 1) or dsc_detected:
+			if view.command_history(0) == ('insert', {'characters': ';;'}, 1): view.run_command("undo")
+			else: view.run_command("left_delete"); view.run_command("left_delete")
+			MyPanelCommand.type_of_QP = ""
 			if view == view.window().active_view():
-				if "history list is shown" in MyPanelCommand.flags: MyPanelCommand.flags.remove("history list is shown")
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
 				line_text = view.substr(view.line(sublime.Region(0, 0)))
 				if len(line_text) == 0:
 					if ";;event;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;event;;")
-				if MyPanelCommand.viewlist[-1] != MyPanelCommand.lastseenQP:
+				if MyPanelCommand.lastview != MyPanelCommand.lastseenQP:
 					if ";;NonQP;;" not in MyPanelCommand.flags: MyPanelCommand.flags.append(";;NonQP;;")
 				view.window().run_command("my_panel", {"text": line_text})
 
@@ -430,12 +440,8 @@ class MyListener(sublime_plugin.EventListener):
 		# PanelView is set if it is not a buffer
 		if view != view.window().active_view():
 			MyPanelCommand.PanelView = view
-		# Maintain a unique list of has-had-activated views and current one at the end
-		if view.id() not in MyPanelCommand.viewlist:
-			MyPanelCommand.viewlist.append(view.id())
-		else:
-			MyPanelCommand.viewlist.remove(view.id())
-			MyPanelCommand.viewlist.append(view.id())
+		# lastview is set, and its content is the id of the activated view
+		MyPanelCommand.lastview = view.id()
 
 def plugin_loaded():
 	MyPanelCommand.topline = ">>>" + " "*27 + "Top of history list"
