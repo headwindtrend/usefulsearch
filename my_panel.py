@@ -321,8 +321,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if not self.grptycoon or results[index][v:] in self.mark:
 					new_index = 0
 					if results[index][v:] != text and (not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100):	# impose a limit for drilldown
-						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (index, results, text, self.extraspace, self.mark):
-							self.stack += [(index, results, text, self.extraspace, self.mark)]
+						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (index, results, text, self.extraspace, self.mark, self.grptycoon):
+							self.stack += [(index, results, text, self.extraspace, self.mark, self.grptycoon)]
 						text = results[index][v:]
 						results = self.get_matched_lines(self.do_transformation(text))
 						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
@@ -358,7 +358,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			fallback = len(self.stack) > 0
 			if fallback:
-				index, results, text, self.extraspace, self.mark = self.stack.pop()
+				index, results, text, self.extraspace, self.mark, self.grptycoon = self.stack.pop()
 				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
