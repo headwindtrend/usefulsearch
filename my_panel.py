@@ -257,8 +257,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		line_count = row + 1
 		self.lc_len = len(str(line_count))
 		format_str = "{:>" + str(self.lc_len) + "}:"
-		# Find all possible marks as the preparation for assortment
-# 		marks = [(view.substr(i), i.begin(), i.end()) for i in view.find_all(slimark if slimark else self.mark, sublime.IGNORECASE if self.case_i else 0)]
+		# Create a temporary buffer for each line_text to be searched by find_all
+		temp = self.window.new_file(); temp.set_scratch(True)
 		# Find all regions that match the text
 		regions = view.find_all(text, sublime.IGNORECASE if self.case_i else 0)
 		# Loop through each region
@@ -271,8 +271,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				# Append the result to the list
 				result = format_str.format(line_number + 1) + " " + line_text
 				results.append(result)
-# 				assortm += [i[0] for i in marks if i[1] >= view.line(region).begin() and i[2] <= view.line(region).end()]	#re.findall(self.mark, line_text, re.IGNORECASE if self.case_i else 0)
-				assortm += re.findall(slimark if slimark else self.mark, line_text, re.IGNORECASE if self.case_i else 0)
+				# Put line_text into temp and search it by find_all
+				temp.run_command("select_all"); temp.run_command("insert", {"characters": line_text})
+				assortm += [temp.substr(i) for i in temp.find_all(slimark if slimark else self.mark, sublime.IGNORECASE if self.case_i else 0)]
 			lastfound = line_number
 			if time.time() > timeout:
 				percent_completed = (ri + 1) / len(regions) * 100
@@ -280,6 +281,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				yesno = sublime.yes_no_cancel_dialog(themessage, "Yes", "No")
 				if yesno == sublime.DIALOG_YES: timeout = time.time() + self.maxtol	# reset timer
 				else: return [">>>Timeout<<<"]
+		temp.close()	# Close the temporary buffer
 		stass = [item.strip() for item in assortm]
 		if self.ass_ao:	# Ascending order
 			ulist = sorted([(i, stass.count(i)) for i in set(stass)], key=lambda x: x[0])
