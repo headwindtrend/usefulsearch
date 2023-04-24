@@ -280,7 +280,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				themessage = str(int(percent_completed)) + "% completed\n\nDo you want to continue?"
 				yesno = sublime.yes_no_cancel_dialog(themessage, "Yes", "No")
 				if yesno == sublime.DIALOG_YES: timeout = time.time() + self.maxtol	# reset timer
-				else: return [">>>Timeout<<<"]
+				else: temp.close(); return [">>>Timeout<<<"]
 		temp.close()	# Close the temporary buffer
 		stass = [item.strip() for item in assortm]
 		if self.ass_ao:	# Ascending order
