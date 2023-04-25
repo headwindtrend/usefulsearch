@@ -188,6 +188,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			text = re.sub(r"^\s*=np=|=np=\s*$", "", text)
 		# Prepare the text for shorthand search
 		if option == "shorthand":
+			text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'").replace(r"\.", ".")
 			text = (re.sub(r"([\w.])", r"(?:\\b\1\\w*\\b(?:[^\\w\\n]+|$))", re.sub(r"//$", "", text.strip())[:-1] if re.search(r"^/.+/$", text.strip()) else re.sub(r"//$", "", text.strip()))
 			+ ("||" if re.search(r"^\S+\s+.+//$", text.strip()) else "|")
 			+ re.sub(r"(?<=[\w.])(?=[\w.?])", r"(?:\w{0,3})", text.strip()[1:] if re.search(r"^/.+/$", text.strip()) else text.strip()))
@@ -243,7 +244,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			self.mark = text
 		else:
 			if "\\w{0,3}" not in text:
-				text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'")
+				text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'").replace(r"\.", ".")
 			self.mark = text
 		if not self.copywhat: sublime.set_clipboard(text)	# This exists for the user convenience as s/he may want to use the pattern to find the "needle" by other means, for instance, by ctrl+f
 		return text
@@ -435,7 +436,7 @@ class MyListener(sublime_plugin.EventListener):
 			if view.command_history(0) == ('insert', {'characters': ';;'}, 1): view.run_command("undo")
 			else: view.run_command("left_delete"); view.run_command("left_delete")
 			MyPanelCommand.type_of_QP = ""
-			if view == view.window().active_view():
+			if view.window() is not None and view == view.window().active_view():
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
 				line_text = view.substr(view.line(sublime.Region(0, 0)))
