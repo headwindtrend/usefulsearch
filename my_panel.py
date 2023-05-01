@@ -313,6 +313,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if self.copywhat == "[c]" or self.copywhat == "[copy]" or "both" in self.copywhat or "line" in self.copywhat or "plain" in self.copywhat:
 				for item in results: matchedlines += (item if "/n" in self.copywhat or "+n" in self.copywhat else item[self.lc_len + 2:]) + "\n"
 			sublime.set_clipboard(matchedlines)
+		if assortm and not results: assortm = []
 		return assortm + results
 
 	# A helper function that runs this command again with the selected item
