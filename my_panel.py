@@ -9,6 +9,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	stack = []	# this variable is added for drilldown
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
+	gcontent_for_imesh = ""	# this variable is added for imesh (ime shorthand)
 	# the initial value set here, for the variables below, doesn't really matter
 	items = []	# this variable keep track all history items
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
@@ -24,6 +25,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	lastview = 0	# keep last-activated view
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
+	renew = False	# this variable is added for imesh
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -99,6 +101,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					items.remove(text)
 					self.save_history()
 				return self.window.run_command("my_panel")
+			# No need renew by default
+			self.renew = False
+			# Check if the renew instruction is in place
+			pattern = r"\[rn\]|\[r(?:enew)?\]"
+			renew_in_place = re.search(pattern, text)
+			if renew_in_place:
+				self.renew = True
+				text = re.sub(pattern, "", text)
 			# No need copy by default
 			self.copywhat = ""
 			# Check if the copy instruction is in place
@@ -221,6 +231,25 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					matched_words += "[" + re.sub(r"\s.+(?:\r?\n|$)", "", ime_lines) + "]" #; print(matched_words)#debug
 				text = text.replace(ime_found.group(), matched_words) #; print(text)#debug
 				ime_found = re.search(r"''[\w']+''", text.strip())
+			imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip()); pos = 0
+			if self.renew: self.gcontent_for_imesh = ""; self.renew = False
+			while imesh_found:
+				imesh = imesh_found.group()[2:-2]; imeshr = ""; result = ""
+				for ch in imesh:
+					imeshr += r"[^\x00-\xFF](?:/[a-z]\w*)*?/" + (ch if ch == "_" else ch + r"\w*(?:/[a-z]\w*)*/_")
+				if not self.gcontent_for_imesh:
+					content = self.window.active_view().substr(sublime.Region(0, self.window.active_view().size()))
+					for utc_found in re.finditer(r"[^\x00-\xFF]", content):
+						udm_found = re.search("(?<=" + utc_found.group() + r"\t)/[\w/]+/\t/[\w/]+/(?=\s*\r?\n)", self.udmTable)
+						self.gcontent_for_imesh += content[pos:utc_found.start()] + utc_found.group() + (udm_found.group()[udm_found.group().index("\t")+1:] + "_" if udm_found else "")
+						pos = utc_found.end()
+					if pos < len(content): self.gcontent_for_imesh += content[pos:]
+				for match in re.finditer(imeshr, self.gcontent_for_imesh):
+					candidate = re.sub(r"[\x00-\xFF]", "", match.group())
+					if candidate not in result: result += "|" + candidate + "|"
+				if result: result = "(" + result[1:-1].replace("||", "|") + ")"
+				text = text.replace(imesh_found.group(), result)
+				imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip())
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
