@@ -101,6 +101,10 @@ Let's see some typical examples first:
 
 Change log:
 
+* May 13, 2023&nbsp;&nbsp;&nbsp;&nbsp;improved the highlighting feature for multi-term search. for instance, given three lines of text, in which, `abcdefghijklm` is on the top, `nopqrstuvwxyz` at the bottom, and `abcdefghijklmnopqrstuvwxyz` in the middle, and you entered this `vwx cde//` for a multi-term search: in the old days, although only the middle line is shown on the quick_panel (as it's the only line that has both `vwx` and `cde`), all the `cde` and the `vwx` will be highlighted regardless of which line they are on. that was, the `cde` on both the top line and the middle line, as well as the `vwx` on both the middle line and the bottom line will be highlighted (in yellow). now, after this "commit", only the `cde` and `vwx` on the matched line(s) (in this case, the middle line) will be highlighted in yellow, whereas the `cde` on the top line and the `vwx` on the bottom line will be highlighted in gray instead.
+
+* May 13, 2023&nbsp;&nbsp;&nbsp;&nbsp;minor adjustment. to make drilldown feature sticking with the `case insensitive` convention.
+
 * May 4, 2023&nbsp;&nbsp;&nbsp;&nbsp;Branch "IME Shorthand Search" is created out of "Allow Search By IME Codes". imesh (ime shorthand) search is a new feature which will take the content of the current buffer and the udmtable to generate an imesh searchable version of the content in memory hence user can search text by any improvised ime shorthands. since generating the imesh searchable content takes time, i figured to keep it in memory for subsequent searches until user issues a "renew" instruction to regenerate it. i included a sample text file (which has lyrics) to show the power of this new feature. just open it up in sublime text editor and search this `/[[sws]]/=np=` to get a sense of it. to renew the content in memory, just add `[r]` or `[rn]` or `[renew]` in your search term, for instance, `/[[yjy]]/=np=[r]`.
 
 * May 1, 2023&nbsp;&nbsp;&nbsp;&nbsp;fixed a minor bug which was induced on the first "commit" (re: slim ...) made on march-25.
