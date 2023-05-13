@@ -24,6 +24,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	lastview = 0	# keep last-activated view
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
+	mRegions = []	# this variable is added for improved highlighting
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -128,7 +129,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 			# Show the matched lines in quick_panel if found anything
 			if len(results) > 0 and not self.tmbtp_itself:
-				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+				if self.mRegions:
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "comment")
+					view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
+				else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
 			# Otherwise, attempt shorthand search
 			else:
@@ -136,7 +140,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 				# Show the matched lines in quick_panel if found anything
 				if len(results) > 0:
-					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+					if self.mRegions:
+						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "comment")
+						view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
+					else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
@@ -153,7 +160,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				view.show_popup("<b style='background-color:red;color:yellow'>: Empty list! :</b>")
 
 	def on_cancel(self):
-		self.window.active_view().erase_regions("MyPanel")
+		self.window.active_view().erase_regions("MyPanel"); self.window.active_view().erase_regions("NameOne")
 
 	def prompt_timeout(self, view):
 		print("Timeout!"); self.window.status_message("Timeout!")
@@ -298,6 +305,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if self.copywhat == "[c]" or self.copywhat == "[copy]" or "both" in self.copywhat or "line" in self.copywhat or "plain" in self.copywhat:
 				for item in results: matchedlines += (item if "/n" in self.copywhat or "+n" in self.copywhat else item[self.lc_len + 2:]) + "\n"
 			sublime.set_clipboard(matchedlines)
+		self.mRegions = [i for i in view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0) for j in regions if j.contains(i)] if self.mark != text else []
 		if assortm and not results: assortm = []
 		return assortm + results
 
@@ -326,10 +334,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					new_index = 0
 					if results[index][v:] != text and (not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100):	# impose a limit for drilldown
 						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (index, results, text, self.extraspace, self.mark, self.grptycoon):
-							self.stack += [(index, results, text, self.extraspace, self.mark, self.grptycoon)]
+							self.stack += [(index, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.grptycoon)]
 						text = results[index][v:]
 						results = self.get_matched_lines(self.do_transformation(text))
-						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+						view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 					else:
 						self.window.status_message("Drilldown is rejected!"); new_index = index
 					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, new_index, lambda idx: self.on_highlight(idx, results))
@@ -362,8 +370,11 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			fallback = len(self.stack) > 0
 			if fallback:
-				index, results, text, self.extraspace, self.mark, self.grptycoon = self.stack.pop()
-				view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+				index, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.grptycoon = self.stack.pop()
+				if regions_NameOne:
+					view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "comment")
+					view.erase_regions("NameOne"); view.add_regions("NameOne", regions_NameOne, "string", "dot")
+				else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "string", "dot")
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
