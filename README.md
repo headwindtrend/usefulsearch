@@ -101,6 +101,8 @@ Let's see some typical examples first:
 
 Change log:
 
+* May 16, 2023&nbsp;&nbsp;&nbsp;&nbsp;since both the "search by ime codes" and the "search by ime shorthand" require a pair of slashes (as they ultimately are converted to a regex search) and "search by ime shorthand" also require `=np=` as well, i figured to make it a bit more user-friendly by checking if you forgot to do it, the script will do it for you automatically. that's what this "commit" is done for.
+
 * May 13, 2023&nbsp;&nbsp;&nbsp;&nbsp;improved the highlighting feature for multi-term search. for instance, given three lines of text, in which, `abcdefghijklm` is on the top, `nopqrstuvwxyz` at the bottom, and `abcdefghijklmnopqrstuvwxyz` in the middle, and you entered this `vwx cde//` for a multi-term search: in the old days, although only the middle line is shown on the quick_panel (as it's the only line that has both `vwx` and `cde`), all the `cde` and the `vwx` will be highlighted regardless of which line they are on. that was, the `cde` on both the top line and the middle line, as well as the `vwx` on both the middle line and the bottom line will be highlighted (in yellow). now, after this "commit", only the `cde` and `vwx` on the matched line(s) (in this case, the middle line) will be highlighted in yellow, whereas the `cde` on the top line and the `vwx` on the bottom line will be highlighted in gray instead.
 
 * May 13, 2023&nbsp;&nbsp;&nbsp;&nbsp;minor adjustment. to make drilldown feature sticking with the `case insensitive` convention.
