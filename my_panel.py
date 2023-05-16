@@ -225,7 +225,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				text = "/" + (text[1:] if text[:1] == "|" else text)
 		# Handle ime syntax
 		if option != "shorthand":
-			ime_found = re.search(r"''[\w']+''", text.strip())
+			ime_found = re.search(r"''[\w']+''", text.strip()); shrs = True if ime_found else False	# shrs stands for "should have required syntax"
 			while ime_found:
 				ime_words = ime_found.group()[2:-2].split("''"); matched_words = ""
 				for ime_word in ime_words:
@@ -238,7 +238,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					matched_words += "[" + re.sub(r"\s.+(?:\r?\n|$)", "", ime_lines) + "]" #; print(matched_words)#debug
 				text = text.replace(ime_found.group(), matched_words) #; print(text)#debug
 				ime_found = re.search(r"''[\w']+''", text.strip())
-			imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip()); pos = 0
+			imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip()); shrs = 2 if imesh_found else shrs; pos = 0
 			if self.renew: self.gcontent_for_imesh = ""; self.renew = False
 			while imesh_found:
 				imesh = imesh_found.group()[2:-2]; imeshr = ""; result = ""
@@ -257,6 +257,9 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if result: result = "(" + result[1:-1].replace("||", "|") + ")"
 				text = text.replace(imesh_found.group(), result)
 				imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip())
+			if shrs:
+				if not re.search(r"^/.+/$", text.strip()): text = "/" + text + "/"
+				if shrs == 2 and self.grptycoon: self.grptycoon = False
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
