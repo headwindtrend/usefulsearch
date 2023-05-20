@@ -181,8 +181,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
 		else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
 
-	def show_last_result(self, text, results):
-		self.highlight_matches(); self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, self.lastindex, lambda idx: self.on_highlight(idx, results)); self.stack = []
+	def show_last_result(self, text, results, regions_MyPanel=[], regions_NameOne=[]):
+		view = self.window.active_view()
+		if regions_NameOne:
+			view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "comment")
+			view.erase_regions("NameOne"); view.add_regions("NameOne", regions_NameOne, "string", "dot")
+		else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "string", "dot")
+		self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, self.lastindex, lambda idx: self.on_highlight(idx, results)); self.stack = []
 
 	def on_cancel(self):
 		self.window.active_view().erase_regions("MyPanel"); self.window.active_view().erase_regions("NameOne")
@@ -312,8 +317,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	# Generate a list of matched lines
 	def get_matched_lines(self, text):
 		if text == r"\[ll\]":	# "ll" stands for "load last (result)"
-			self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.mRegions, self.grptycoon = self.lastresult.pop()
-			self.show_last_result(text, results)
+			self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.grptycoon = self.lastresult.pop()
+			self.show_last_result(text, results, regions_MyPanel, regions_NameOne)
 			return [">> last search result is loaded <<"]
 		results = []
 		assortm = []
@@ -398,7 +403,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
 		view = self.window.active_view()
-		self.lastresult = [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon)]
+		self.lastresult = [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.grptycoon)]
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# If one of the assorted matches is picked, insert it directly
@@ -407,8 +412,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if not self.grptycoon or results[index][v:].lower() in self.mark.lower():
 					new_index = 0
 					if results[index][v:] != text and (not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100):	# impose a limit for drilldown
-						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon):
-							self.stack += [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon)]
+						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.grptycoon):
+							self.stack += [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.grptycoon)]
 						text = results[index][v:]
 						results = self.get_matched_lines(self.do_transformation(text))
 						view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
@@ -444,15 +449,11 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			fallback = len(self.stack) > 0
 			if fallback:
-				self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.mRegions, self.grptycoon = self.stack.pop()
-				if regions_NameOne:
-					view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "comment")
-					view.erase_regions("NameOne"); view.add_regions("NameOne", regions_NameOne, "string", "dot")
-				else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "string", "dot")
+				self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.grptycoon = self.stack.pop()
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
-			if fallback: self.show_last_result(text, results)
+			if fallback: self.show_last_result(text, results, regions_MyPanel, regions_NameOne)
 			else:
 				if text:
 					if "yes edit" not in self.flags: self.flags.append("yes edit")
