@@ -101,6 +101,8 @@ Let's see some typical examples first:
 
 Change log:
 
+* May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;adjusted some codes that i made some time ago today.
+
 * May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;added a feature to load last result back on screen. it can save time when your file is big and/or your search term is sophisticated which takes noticeable time to complete, "load last result" is handy to show the last search result in memory without having to search again. enter this `[ll]` as your search term (or it exists anywhere in your search term) to get the result back.
 
 * May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;added a feature for reverse order. it could be useful in dealing with a big log file that you very often interested in the matches close to the bottom than to the top. add this `=rv=` in your search term to get the search results listed in reverse order (by line).
