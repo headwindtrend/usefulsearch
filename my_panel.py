@@ -9,6 +9,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	stack = []	# this variable is added for drilldown
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
+	gcontent_for_imesh = ""	# this variable is added for imesh (ime shorthand)
 	lastresult = []	# this variable keeps the last search result
 	# the initial value set here, for the variables below, doesn't really matter
 	items = []	# this variable keep track all history items
@@ -25,6 +26,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	lastview = 0	# keep last-activated view
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
+	renew = False	# this variable is added for imesh
 	mRegions = []	# this variable is added for improved highlighting
 	lastindex = 0	# this variable is added for the "load last (result)"
 	reverse = False	# a flag for reverse order
@@ -111,6 +113,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					items.remove(text)
 					self.save_history()
 				return self.window.run_command("my_panel")
+			# No need renew by default
+			self.renew = False
+			# Check if the renew instruction is in place
+			pattern = r"\[rn\]|\[r(?:enew)?\]"
+			renew_in_place = re.search(pattern, text)
+			if renew_in_place:
+				self.renew = True
+				text = re.sub(pattern, "", text)
 			# No need copy by default
 			self.copywhat = ""
 			# Check if the copy instruction is in place
@@ -234,6 +244,43 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 					for j in range(len(ta)):
 						text = self.pf(ta, j) + text
 				text = "/" + (text[1:] if text[:1] == "|" else text)
+		# Handle ime syntax
+		if option != "shorthand":
+			ime_found = re.search(r"''[\w']+''", text.strip()); shrs = True if ime_found else False	# shrs stands for "should have required syntax"
+			while ime_found:
+				ime_words = ime_found.group()[2:-2].split("''"); matched_words = ""
+				for ime_word in ime_words:
+					ime_segms = ime_word.split("'"); ime_regex = "^(?!"
+					for ime_segm in ime_segms:
+						if ime_segm.startswith("-"): ime_regex += "(?!.*(?:" + ime_segm[1:] + "))"
+						else: ime_regex += "(?=.*(?:" + ime_segm + "))"
+					ime_regex += r").*\r?\n?" #; print(ime_regex)#debug
+					ime_lines = re.sub(ime_regex, "", self.udmTable, flags=re.MULTILINE)
+					matched_words += "[" + re.sub(r"\s.+(?:\r?\n|$)", "", ime_lines) + "]" #; print(matched_words)#debug
+				text = text.replace(ime_found.group(), matched_words) #; print(text)#debug
+				ime_found = re.search(r"''[\w']+''", text.strip())
+			imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip()); shrs = 2 if imesh_found else shrs; pos = 0
+			if self.renew: self.gcontent_for_imesh = ""; self.renew = False
+			while imesh_found:
+				imesh = imesh_found.group()[2:-2]; imeshr = ""; result = ""
+				for ch in imesh:
+					imeshr += r"[^\x00-\xFF](?:/[a-z]\w*)*?/" + (ch if ch == "_" else ch + r"\w*(?:/[a-z]\w*)*/_")
+				if not self.gcontent_for_imesh:
+					content = self.window.active_view().substr(sublime.Region(0, self.window.active_view().size()))
+					for utc_found in re.finditer(r"[^\x00-\xFF]", content):
+						udm_found = re.search("(?<=" + utc_found.group() + r"\t)/[\w/]+/\t/[\w/]+/(?=\s*\r?\n)", self.udmTable)
+						self.gcontent_for_imesh += content[pos:utc_found.start()] + utc_found.group() + (udm_found.group()[udm_found.group().index("\t")+1:] + "_" if udm_found else "")
+						pos = utc_found.end()
+					if pos < len(content): self.gcontent_for_imesh += content[pos:]
+				for match in re.finditer(imeshr, self.gcontent_for_imesh):
+					candidate = re.sub(r"[\x00-\xFF]", "", match.group())
+					if candidate not in result: result += "|" + candidate + "|"
+				if result: result = "(" + result[1:-1].replace("||", "|") + ")"
+				text = text.replace(imesh_found.group(), result)
+				imesh_found = re.search(r"\[\[[a-z]\w*\]\]", text.strip())
+			if shrs:
+				if not re.search(r"^/.+/$", text.strip()): text = "/" + text + "/"
+				if shrs == 2 and self.grptycoon: self.grptycoon = False
 		# Main transformation starts here
 		if re.search(r"^\S+\s+.+//$", text.strip()):
 			text = re.sub(r"//$", "", re.sub(r"\s+", " ", text.strip()))
@@ -496,3 +543,9 @@ def plugin_loaded():
 			filecontent = re.sub(r'(?<=")\s+(?=\[)', ':', re.sub(r'(?<=["\]])\s+(?=")', ',', filecontent))
 			filecontent = re.sub(r'^\s+|(?<=\[)\s+(?=")|(?<=")\s+(?=])|\s+$', '', filecontent)
 			MyPanelCommand.histdict = json.loads("{" + filecontent + "}")
+
+	udmTable_filename = MyPanelCommand.filepath + r"\udmTable.txt"
+	if os.path.isfile(udmTable_filename):
+		with open(udmTable_filename, "r", encoding="utf-8") as f:
+			MyPanelCommand.udmTable = f.read()
+	else: MyPanelCommand.udmTable = ""
