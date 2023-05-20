@@ -25,6 +25,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
 	mRegions = []	# this variable is added for improved highlighting
+	reverse = False	# a flag for reverse order
 	# end of variables initialization section
 
 	def run(self, text=None):
@@ -193,6 +194,12 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if re.search(r"^\s*=np=|=np=\s*$", text):
 			self.grptycoon = False
 			text = re.sub(r"^\s*=np=|=np=\s*$", "", text)
+		# No reverse order by default
+		self.reverse = False
+		# Handle reverse order request
+		if re.search(r"^\s*=rv=|=rv=\s*$", text):
+			self.reverse = True
+			text = re.sub(r"^\s*=rv=|=rv=\s*$", "", text)
 		# Prepare the text for shorthand search
 		if option == "shorthand":
 			text = re.escape(text); text = text.replace(r"\`", "`").replace(r"\'", "'").replace(r"\.", ".")
@@ -306,6 +313,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				for item in results: matchedlines += (item if "/n" in self.copywhat or "+n" in self.copywhat else item[self.lc_len + 2:]) + "\n"
 			sublime.set_clipboard(matchedlines)
 		self.mRegions = [i for i in view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0) for j in regions if j.contains(i)] if self.mark != text else []
+		if self.reverse: results.reverse()
 		if assortm and not results: assortm = []
 		return assortm + results
 
