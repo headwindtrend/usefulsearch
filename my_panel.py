@@ -9,6 +9,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	stack = []	# this variable is added for drilldown
 	flags = []	# this variable is added for flow control
 	lastdel = ""	# this variable is added for the undo feature
+	lastresult = []	# this variable keeps the last search result
 	# the initial value set here, for the variables below, doesn't really matter
 	items = []	# this variable keep track all history items
 	lc_len = 5	# how many characters (i.e. length) "line numbering" required
@@ -25,6 +26,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	grptycoon = True	# a flag for prescan and pregroup for "too many"
 	copywhat = ""	# this variable is added for holding of the copy instruction
 	mRegions = []	# this variable is added for improved highlighting
+	lastindex = 0	# this variable is added for the "load last (result)"
 	reverse = False	# a flag for reverse order
 	# end of variables initialization section
 
@@ -93,6 +95,14 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		view = self.window.active_view()
 		# If anything is entered, process it and show the matches
 		if text:
+			# Check if the "load last (result)" instruction is in place
+			if "[ll]" in text.lower():
+				if len(self.lastresult) > 0: text = "[ll]"
+				else:
+					print("No last result yet!"); self.window.status_message("No last result yet!")
+					self.window.run_command("my_panel", {"text": text})
+					view.show_popup("<b style='background-color:red;color:lime'>: No last result yet! :</b>")
+					return
 			# Check if any of the keywords for deleting history item is in place
 			if re.search(r"\[del(?:ete)?\]|\[remove\]", text):
 				text = re.sub(r"\[del(?:ete)?\]|\[remove\]", "", text)
@@ -127,25 +137,16 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				self.save_history()
 			# Do the essential process
 			results = self.get_matched_lines(self.do_transformation(text))
+			if results == [">> last search result is loaded <<"]: return
 			if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 			# Show the matched lines in quick_panel if found anything
-			if len(results) > 0 and not self.tmbtp_itself:
-				if self.mRegions:
-					view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "comment")
-					view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
-				else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-				self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
+			if len(results) > 0 and not self.tmbtp_itself: self.show_results(text, results)
 			# Otherwise, attempt shorthand search
 			else:
 				results = self.get_matched_lines(self.do_transformation(text, "shorthand"))
 				if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
 				# Show the matched lines in quick_panel if found anything
-				if len(results) > 0:
-					if self.mRegions:
-						view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "comment")
-						view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
-					else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
-					self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
+				if len(results) > 0: self.show_results(text, results)
 				else:
 					print("Nothing matched!"); self.window.status_message("Nothing matched!")
 					self.window.run_command("my_panel", {"text": text})
@@ -159,6 +160,19 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				print("Empty list!"); self.window.status_message("Empty list!")
 				self.window.run_command("my_panel", {"text": text})
 				view.show_popup("<b style='background-color:red;color:yellow'>: Empty list! :</b>")
+
+	def show_results(self, text, results):
+		self.highlight_matches(); self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, 0, lambda idx: self.on_highlight(idx, results)); self.stack = []
+
+	def highlight_matches(self):
+		view = self.window.active_view()
+		if self.mRegions:
+			view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "comment")
+			view.erase_regions("NameOne"); view.add_regions("NameOne", self.mRegions, "string", "dot")
+		else: view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
+
+	def show_last_result(self, text, results):
+		self.highlight_matches(); self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, self.lastindex, lambda idx: self.on_highlight(idx, results)); self.stack = []
 
 	def on_cancel(self):
 		self.window.active_view().erase_regions("MyPanel"); self.window.active_view().erase_regions("NameOne")
@@ -250,6 +264,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# Generate a list of matched lines
 	def get_matched_lines(self, text):
+		if text == r"\[ll\]":	# "ll" stands for "load last (result)"
+			self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.mRegions, self.grptycoon = self.lastresult.pop()
+			self.show_last_result(text, results)
+			return [">> last search result is loaded <<"]
 		results = []
 		assortm = []
 		seen = []
@@ -333,6 +351,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
 		view = self.window.active_view()
+		self.lastresult = [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon)]
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
 			# If one of the assorted matches is picked, insert it directly
@@ -341,8 +360,8 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if not self.grptycoon or results[index][v:].lower() in self.mark.lower():
 					new_index = 0
 					if results[index][v:] != text and (not self.grptycoon or int(re.search(r"\d+(?= <<< )", results[index]).group()) < 100):	# impose a limit for drilldown
-						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (index, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon):
-							self.stack += [(index, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon)]
+						if len(self.stack) == 0 or len(self.stack) > 0 and self.stack[-1] != (self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon):
+							self.stack += [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.mRegions, self.grptycoon)]
 						text = results[index][v:]
 						results = self.get_matched_lines(self.do_transformation(text))
 						view.erase_regions("NameOne"); view.erase_regions("MyPanel"); view.add_regions("MyPanel", view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0), "string", "dot")
@@ -378,7 +397,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		else:
 			fallback = len(self.stack) > 0
 			if fallback:
-				index, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.mRegions, self.grptycoon = self.stack.pop()
+				self.lastindex, results, text, self.extraspace, self.mark, regions_MyPanel, regions_NameOne, self.mRegions, self.grptycoon = self.stack.pop()
 				if regions_NameOne:
 					view.erase_regions("MyPanel"); view.add_regions("MyPanel", regions_MyPanel, "comment")
 					view.erase_regions("NameOne"); view.add_regions("NameOne", regions_NameOne, "string", "dot")
@@ -386,7 +405,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			head = "= =" if self.extraspace.startswith("head") else "=;=" if self.extraspace.startswith(";") else ""
 			tail = "= =" if self.extraspace.endswith("tail") else "=;=" if self.extraspace.endswith(";") else ""
 			# Run this command again with the untransformed text
-			if fallback: self.window.show_quick_panel(results, lambda idx: self.mpick(idx, results, text), 1, index, lambda idx: self.on_highlight(idx, results))
+			if fallback: self.show_last_result(text, results)
 			else:
 				if text:
 					if "yes edit" not in self.flags: self.flags.append("yes edit")
@@ -394,6 +413,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
+		self.lastindex = index
 		self.lastseenQP = self.lastview; self.type_of_QP = "search result"
 		if not re.search(r"^(?:\s*\d+ >>> )?\s*\d+ <<< ", results[index]):
 			view = self.window.active_view()
