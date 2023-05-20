@@ -101,6 +101,12 @@ Let's see some typical examples first:
 
 Change log:
 
+* May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;added a feature to load last result back on screen. it can save time when your file is big and/or your search term is sophisticated which takes noticeable time to complete, "load last result" is handy to show the last search result in memory without having to search again. enter this `[ll]` as your search term (or it exists anywhere in your search term) to get the result back.
+
+* May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;added a feature for reverse order. it could be useful in dealing with a big log file that you very often interested in the matches close to the bottom than to the top. add this `=rv=` in your search term to get the search results listed in reverse order (by line).
+
+* May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;spotted a careless omission in code (since 2023.5.13) hence this "commit" to have it replenished.
+
 * May 16, 2023&nbsp;&nbsp;&nbsp;&nbsp;since both the "search by ime codes" and the "search by ime shorthand" require a pair of slashes (as they ultimately are converted to a regex search) and "search by ime shorthand" also require `=np=` as well, i figured to make it a bit more user-friendly by checking if you forgot to do it, the script will do it for you automatically. that's what this "commit" is done for.
 
 * May 13, 2023&nbsp;&nbsp;&nbsp;&nbsp;improved the highlighting feature for multi-term search. for instance, given three lines of text, in which, `abcdefghijklm` is on the top, `nopqrstuvwxyz` at the bottom, and `abcdefghijklmnopqrstuvwxyz` in the middle, and you entered this `vwx cde//` for a multi-term search: in the old days, although only the middle line is shown on the quick_panel (as it's the only line that has both `vwx` and `cde`), all the `cde` and the `vwx` will be highlighted regardless of which line they are on. that was, the `cde` on both the top line and the middle line, as well as the `vwx` on both the middle line and the bottom line will be highlighted (in yellow). now, after this "commit", only the `cde` and `vwx` on the matched line(s) (in this case, the middle line) will be highlighted in yellow, whereas the `cde` on the top line and the `vwx` on the bottom line will be highlighted in gray instead.
