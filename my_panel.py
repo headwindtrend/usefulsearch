@@ -352,6 +352,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if "chain" in self.flags: self.flags.remove("chain")
 			# Run this command again with the untransformed text
 			self.window.run_command("my_panel", {"text": "[=escape=]"})
+			self.window.active_view().settings().erase("skip_selection_checking")
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
@@ -411,6 +412,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if text:
 					if "yes edit" not in self.flags: self.flags.append("yes edit")
 				self.window.run_command("my_panel", {"text": head + text + tail})
+				view.settings().erase("skip_selection_checking")
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
@@ -461,7 +463,7 @@ class MyListener(sublime_plugin.EventListener):
 		if view.command_history(0) == ('insert', {'characters': ';;'}, 1) or dsc_detected:
 			if view.command_history(0) == ('insert', {'characters': ';;'}, 1): view.run_command("undo")
 			else: view.run_command("left_delete"); view.run_command("left_delete")
-			MyPanelCommand.type_of_QP = ""
+			MyPanelCommand.type_of_QP = ""; view.settings().set("skip_selection_checking", True)
 			if view.window() is not None and view == view.window().active_view():
 				view.window().run_command("my_panel", {"text": ";;event;;"})
 			else:
@@ -486,6 +488,39 @@ class MyListener(sublime_plugin.EventListener):
 			MyPanelCommand.PanelView = view
 		# lastview is set, and its content is the id of the activated view
 		MyPanelCommand.lastview = view.id()
+
+	def on_selection_modified(self, view):
+		def popup_menu(href):
+			def popup_menu_handler(index):
+				if index == 0:
+					view.window().run_command("my_panel")
+				elif index == 1:
+					view.window().run_command("find_under")
+				elif index == 2:
+					view.window().run_command("find_under_prev")
+				elif index == 3:
+					view.window().run_command("show_panel", {"panel": "find"})
+				elif index == 4:
+					view.window().run_command("show_panel", {"panel": "replace"})
+				elif index == 5:
+					view.run_command("copy")
+				elif index == 6:
+					view.run_command("paste")
+				elif index == 7:
+					view.run_command("cut")
+				elif index == 8:
+					view.run_command("left_delete")
+				elif index == 9:
+					view.hide_popup()
+			if href == "menu":
+				view.show_popup_menu(["Invoke Useful Search", "Jump To Next Occurrance (Forward)", "Jump To Next Occurrance (Backward)", "Open Find Panel", "Open Replace Panel", "Copy", "Paste", "Cut", "Delete", "Exit"], popup_menu_handler)
+		# Check if the view is a text view (not a panel nor a scratch buffer)
+		if not (view.settings().get("is_widget") == True or view.is_scratch() or view.settings().get("skip_selection_checking")):
+			some_text_is_selected = False
+			for region in view.sel():
+				if region.size() > 0: some_text_is_selected = True; break
+			if some_text_is_selected:
+				view.show_popup("<a href='menu'><b style='background-color:yellow;color:blue'>: My Menu :</b>", on_navigate= popup_menu)
 
 def plugin_loaded():
 	MyPanelCommand.topline = ">>>" + " "*27 + "Top of history list"
