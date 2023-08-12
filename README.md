@@ -101,6 +101,8 @@ Let's see some typical examples first:
 
 Change log:
 
+* Aug 12, 2023&nbsp;&nbsp;&nbsp;&nbsp;Branch "My Menu" is created out of "main". with this new feature added, the `My Menu` "button" (a `popup`) will be shown whenever any text is selected in the buffer. and upon a click on this `My Menu` "button", a custom menu will be shown with certain relevant actions for the selected text, for instance, `Invoke Useful Search`, `Jump To Next Occurrance (Forward)`, `Jump To Next Occurrance (Backward)`, `Open Find Panel`, `Open Replace Panel`, `Copy`, `Paste`, `Cut`, and `Delete`.
+
 * May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;adjusted some codes that i made some time ago today.
 
 * May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;added a feature to load last result back on screen. it can save time when your file is big and/or your search term is sophisticated which takes noticeable time to complete, "load last result" is handy to show the last search result in memory without having to search again. enter this `[ll]` as your search term (or it exists anywhere in your search term) to get the result back.
