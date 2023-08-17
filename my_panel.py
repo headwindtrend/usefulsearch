@@ -447,10 +447,10 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			f.write(json.dumps(self.histdict)[2:-1].replace(r'\"', '&quot;').replace('", "', '\n').replace('": ["', '\n[\n').replace('"], "', '\n]\n\n').replace('"]', '\n]\n').replace('&quot;', '"'))
 
 class MyListener(sublime_plugin.EventListener):
-	timeout = 0
+	timeout = 0; qqtimeout = 0
 
 	def on_modified(self, view):
-		sel0 = view.sel()[0]; dsc_detected = False	# dsc stands for double-semicolon
+		sel0 = view.sel()[0]; dqq_detected = False; dsc_detected = False	# dsc stands for double-semicolon
 		if len(view.substr(sel0)) == 0:
 			point = sel0.begin()
 			if view.substr(sublime.Region(point - 2, point)) == ";;":
@@ -458,6 +458,18 @@ class MyListener(sublime_plugin.EventListener):
 				else: self.timeout = time.time() + 2
 			elif view.substr(sublime.Region(point - 1, point)) == ";":
 				self.timeout = time.time() + 2
+			elif view.substr(sublime.Region(point - 3, point)) == "dqq":
+				if self.qqtimeout > time.time(): dqq_detected = True
+				else: self.qqtimeout = time.time() + 2
+			elif view.substr(sublime.Region(point - 1, point)) == "q":
+				self.qqtimeout = time.time() + 2
+		if view.window() is not None and view == view.window().active_view() and (view.command_history(0) == ('insert', {'characters': 'dqq'}, 1) or dqq_detected):
+			if view.command_history(0) == ('insert', {'characters': 'dqq'}, 1): view.run_command("undo")
+			else: view.run_command("left_delete"); view.run_command("left_delete"); view.run_command("left_delete")
+			orisel = list(view.sel()); view.run_command("select_to_mark"); view.run_command("clear_bookmarks", {"name": "mark"})
+			if len(view.substr(view.sel()[0])) > 0 and "\n" in view.substr(view.sel()[0]): view.sel().clear(); view.sel().add_all(orisel)
+			if len(view.substr(view.sel()[0])) == 0: view.window().run_command("find_under_expand")
+			view.window().run_command("my_panel")
 		if view.command_history(0) == ('insert', {'characters': ';;'}, 1) or dsc_detected:
 			if view.command_history(0) == ('insert', {'characters': ';;'}, 1): view.run_command("undo")
 			else: view.run_command("left_delete"); view.run_command("left_delete")
