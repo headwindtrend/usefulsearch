@@ -101,6 +101,8 @@ Let's see some typical examples first:
 
 Change log:
 
+* Aug 17, 2023&nbsp;&nbsp;&nbsp;&nbsp;Branch `With both "Hotstring dqq" and "My Menu"` is created out of "main". i create this branch because when the concerned two features coexist, one more "skip" setting is needed to be put in place. and a minor adjustment, i also take the chance to change the menu item "Exit" to "Cancel" for a clearer representation of what does it do.
+
 * Aug 12, 2023&nbsp;&nbsp;&nbsp;&nbsp;Branch "My Menu" is created out of "main". with this new feature added, the `My Menu` "button" (a `popup`) will be shown whenever any text is selected in the buffer. and upon a click on this `My Menu` "button", a custom menu will be shown with certain relevant actions for the selected text, for instance, `Invoke Useful Search`, `Jump To Next Occurrance (Forward)`, `Jump To Next Occurrance (Backward)`, `Open Find Panel`, `Open Replace Panel`, `Copy`, `Paste`, `Cut`, and `Delete`.
 
 * May 20, 2023&nbsp;&nbsp;&nbsp;&nbsp;adjusted some codes that i made some time ago today.
