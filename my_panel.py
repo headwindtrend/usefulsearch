@@ -513,7 +513,7 @@ class MyListener(sublime_plugin.EventListener):
 				elif index == 9:
 					view.hide_popup()
 			if href == "menu":
-				view.show_popup_menu(["Invoke Useful Search", "Jump To Next Occurrance (Forward)", "Jump To Next Occurrance (Backward)", "Open Find Panel", "Open Replace Panel", "Copy", "Paste", "Cut", "Delete", "Exit"], popup_menu_handler)
+				view.show_popup_menu(["Invoke Useful Search", "Jump To Next Occurrance (Forward)", "Jump To Next Occurrance (Backward)", "Open Find Panel", "Open Replace Panel", "Copy", "Paste", "Cut", "Delete", "Cancel"], popup_menu_handler)
 		# Check if the view is a text view (not a panel nor a scratch buffer)
 		if not (view.settings().get("is_widget") == True or view.is_scratch() or view.settings().get("skip_selection_checking")):
 			some_text_is_selected = False
