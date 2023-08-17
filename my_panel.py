@@ -466,6 +466,7 @@ class MyListener(sublime_plugin.EventListener):
 			elif view.substr(sublime.Region(point - 1, point)) == "q":
 				self.qqtimeout = time.time() + 2
 		if view.window() is not None and view == view.window().active_view() and (view.command_history(0) == ('insert', {'characters': 'dqq'}, 1) or dqq_detected):
+			view.settings().set("skip_selection_checking", True)
 			if view.command_history(0) == ('insert', {'characters': 'dqq'}, 1): view.run_command("undo")
 			else: view.run_command("left_delete"); view.run_command("left_delete"); view.run_command("left_delete")
 			orisel = list(view.sel()); view.run_command("select_to_mark"); view.run_command("clear_bookmarks", {"name": "mark"})
