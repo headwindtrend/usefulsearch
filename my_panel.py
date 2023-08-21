@@ -342,6 +342,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 
 	# A helper function that runs this command again with the selected item
 	def pick(self, index):
+		self.window.active_view().settings().erase("skip_selection_checking")
 		self.lastseenQP = ""
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
@@ -352,11 +353,11 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 			if "chain" in self.flags: self.flags.remove("chain")
 			# Run this command again with the untransformed text
 			self.window.run_command("my_panel", {"text": "[=escape=]"})
-			self.window.active_view().settings().erase("skip_selection_checking")
 
 	# A helper function that jump to the picked line
 	def mpick(self, index, results, text):
 		view = self.window.active_view()
+		view.settings().erase("skip_selection_checking")
 		self.lastresult = [(self.lastindex, results, text, self.extraspace, self.mark, view.get_regions("MyPanel"), view.get_regions("NameOne"), self.grptycoon)]
 		# If a valid index is given (not -1 when cancelled)
 		if index >= 0:
@@ -412,7 +413,6 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if text:
 					if "yes edit" not in self.flags: self.flags.append("yes edit")
 				self.window.run_command("my_panel", {"text": head + text + tail})
-				view.settings().erase("skip_selection_checking")
 
 	# A helper function that scroll the buffer view to where the highlighted line is located
 	def on_highlight(self, index, results):
@@ -511,9 +511,14 @@ class MyListener(sublime_plugin.EventListener):
 				elif index == 8:
 					view.run_command("left_delete")
 				elif index == 9:
+					MyPanelCommand(view.window()).show_history()
+				elif index == 10:
+					mpcw = MyPanelCommand(view.window()); text = view.substr(view.sel()[0])
+					mpcw.show_results(text, mpcw.get_matched_lines(mpcw.do_transformation(text + "=np=", "shorthand")))
+				elif index == 11:
 					view.hide_popup()
 			if href == "menu":
-				view.show_popup_menu(["Invoke Useful Search", "Jump To Next Occurrance (Forward)", "Jump To Next Occurrance (Backward)", "Open Find Panel", "Open Replace Panel", "Copy", "Paste", "Cut", "Delete", "Cancel"], popup_menu_handler)
+				view.show_popup_menu(["Invoke Useful Search", "Jump To Next Occurrance (Forward)", "Jump To Next Occurrance (Backward)", "Open Find Panel", "Open Replace Panel", "Copy", "Paste", "Cut", "Delete", "Show History List of Useful Search", "Force Shorthand Search", "Cancel"], popup_menu_handler)
 		# Check if the view is a text view (not a panel nor a scratch buffer)
 		if not (view.settings().get("is_widget") == True or view.is_scratch() or view.settings().get("skip_selection_checking")):
 			some_text_is_selected = False
