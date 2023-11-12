@@ -146,6 +146,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				self.items.insert(1, text)
 				self.save_history()
 			# Do the essential process
+			view.settings().set("original_text", text)
 			results = self.get_matched_lines(self.do_transformation(text))
 			if results == [">> last search result is loaded <<"]: return
 			if results == [">>>Timeout<<<"]: self.prompt_timeout(view); return
@@ -385,6 +386,22 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		self.mRegions = [i for i in view.find_all(self.mark, sublime.IGNORECASE if self.case_i else 0) for j in regions if j.contains(i)] if self.mark != text else []
 		if self.reverse: results.reverse()
 		if assortm and not results: assortm = []
+		# given it's not a shorthand search and nothing matched, put extra effort to see if slash-pair is omitted
+		if "\\w{0,3}" not in text and len(assortm + results) == 0:
+			if view.settings().get("original_text"):
+				origtext = view.settings().get("original_text").strip(); view.settings().erase("original_text")
+				if not (re.search(r"^/.+/$", origtext) or re.search(r"^\S+\s+.+//$", origtext)):
+					if origtext.find("||") > -1 or origtext.find(" ") > -1 or origtext[0:1] == "-":
+						if origtext.find("||") > -1:
+							origtext = re.sub(r"(?:^|\|\|)[^ ]+(?=\|\||$)", r"\g<0> .*", origtext)
+							return self.get_matched_lines(self.do_transformation(origtext + "//"))
+						elif origtext.find(" ") > -1:
+							results = self.get_matched_lines(self.do_transformation(origtext + "//"))
+							return results if len(results) > 0 else self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
+						elif origtext[0:1] == "-":
+							results = self.get_matched_lines(self.do_transformation(origtext + " .*//"))
+							return results if len(results) > 0 else self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
+					else: return self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
 		return assortm + results
 
 	# A helper function that runs this command again with the selected item
