@@ -393,13 +393,13 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 				if not (re.search(r"^/.+/$", origtext) or re.search(r"^\S+\s+.+//$", origtext)):
 					if origtext.find("||") > -1 or origtext.find(" ") > -1 or origtext[0:1] == "-":
 						if origtext.find("||") > -1:
-							origtext = re.sub(r"(?:^|\|\|)[^ ]+(?=\|\||$)", r"\g<0> .*", origtext)
+							origtext = re.sub(r"(?:^|\|\|)[^ ]+(?=\|\||$)", r"\g<0> $", origtext)
 							return self.get_matched_lines(self.do_transformation(origtext + "//"))
 						elif origtext.find(" ") > -1:
 							results = self.get_matched_lines(self.do_transformation(origtext + "//"))
 							return results if len(results) > 0 else self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
 						elif origtext[0:1] == "-":
-							results = self.get_matched_lines(self.do_transformation(origtext + " .*//"))
+							results = self.get_matched_lines(self.do_transformation(origtext + " $//"))
 							return results if len(results) > 0 else self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
 					else: return self.get_matched_lines(self.do_transformation("/" + origtext + "/")) if re.search(r"[-\^$*+?.()|[\]{}]", origtext) else ""
 		return assortm + results
