@@ -340,7 +340,7 @@ class MyPanelCommand(sublime_plugin.WindowCommand):
 		if self.reverse: results.reverse()
 		if assortm and not results: assortm = []
 		# given it's not a shorthand search and nothing matched, put extra effort to see if slash-pair is omitted
-		if "\\w{0,3}" not in text and len(assortm + results) == 0:
+		if "\\w{0,3}" not in text and (len(assortm + results) == 0 or self.tmbtp_itself):
 			if view.settings().get("original_text"):
 				origtext = view.settings().get("original_text").strip(); view.settings().erase("original_text")
 				if not (re.search(r"^/.+/$", origtext) or re.search(r"^\S+\s+.+//$", origtext)):
