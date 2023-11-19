@@ -101,6 +101,8 @@ Let's see some typical examples first:
 
 Change log:
 
+* Nov 19, 2023&nbsp;&nbsp;&nbsp;&nbsp;forgot to include the `tmbtp_itself` condition in my last added feature, so here is the replenishment.
+
 * Nov 12, 2023&nbsp;&nbsp;&nbsp;&nbsp;minor adjustment. it can be held until next update, but since i don't have any plan for this project (except the long overdue documentation), so do it at once anyway.
 
 * Nov 12, 2023&nbsp;&nbsp;&nbsp;&nbsp;added some codes to make it more user-friendly for the scenario when the slash-pair is omitted while it should be there to indicate your intended type of search.
