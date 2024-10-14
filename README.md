@@ -99,6 +99,8 @@ Let's see some typical examples first:
 
 (to be continued)
 
+If you appreciate my work, i will be very grateful if you can support my work by making small sum donation thru PayPal with `Send payment to` entered as `headwindtrend@gmail.com`. Thank you very much for your support.
+
 Change log:
 
 * Nov 19, 2023&nbsp;&nbsp;&nbsp;&nbsp;forgot to include the `tmbtp_itself` condition in my last added feature, so here is the replenishment.
